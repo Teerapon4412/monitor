@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>หน้าจอติดตามเครื่องจักร</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">ระบบโรงงาน</p>
+          <h1>หน้าจอติดตามเครื่องจักร</h1>
+          <p class="lead">
+            แสดงสถานะการผลิตของไลน์ CNC, ประกอบ และแพ็กกิ้งแบบใกล้เคียงเวลาจริง
+          </p>
+          <p class="lead">
+            <a class="inline-link" href="./scan.html">ไปที่หน้าสแกน QR</a>
+          </p>
+        </div>
+
+        <section class="panel summary-panel">
+          <div class="section-heading">
+            <span>สรุปกะการผลิต</span>
+            <span class="badge live">กำลังอัปเดต</span>
+          </div>
+          <div class="metric-stack">
+            <div>
+              <strong id="lineEfficiency">--</strong>
+              <span>ประสิทธิภาพไลน์</span>
+            </div>
+            <div>
+              <strong id="criticalAlerts">--</strong>
+              <span>การแจ้งเตือนวิกฤต</span>
+            </div>
+            <div>
+              <strong id="unitsCompleted">--</strong>
+              <span>จำนวนผลิตสะสม</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <span>การแจ้งเตือน</span>
+            <span class="badge warning">ต้องติดตาม</span>
+          </div>
+          <div class="alert-list" id="alertList"></div>
+        </section>
+      </aside>
+
+      <main class="dashboard">
+        <header class="topbar panel">
+          <div>
+            <p class="eyebrow">ภาพรวม</p>
+            <h2>ศูนย์ควบคุมการผลิต</h2>
+          </div>
+          <div class="topbar-meta">
+            <div>
+              <span>กะปัจจุบัน</span>
+              <strong>กะกลางคืน A</strong>
+            </div>
+            <div>
+              <span>อัปเดตล่าสุด</span>
+              <strong id="lastUpdated">--:--</strong>
+            </div>
+          </div>
+        </header>
+
+        <section class="stats-grid">
+          <article class="panel stat-card accent-cyan">
+            <span>เครื่องที่ออนไลน์</span>
+            <strong id="onlineCount">--</strong>
+            <small id="onlineSubtext">กำลังโหลดสถานะเครื่องจักร</small>
+          </article>
+          <article class="panel stat-card accent-amber">
+            <span>รอบเวลาผลิตเฉลี่ย</span>
+            <strong id="averageCycle">-- sec</strong>
+            <small id="cycleDelta">กำลังคำนวณแนวโน้ม</small>
+          </article>
+          <article class="panel stat-card accent-coral">
+            <span>เวลาหยุดเครื่อง</span>
+            <strong id="downtimeValue">-- min</strong>
+            <small id="downtimeCause">กำลังตรวจสอบสาเหตุ</small>
+          </article>
+        </section>
+
+        <section class="ticker panel">
+          <div class="section-heading">
+            <span>ฟีดสถานะล่าสุด</span>
+            <span class="badge live">รีเฟรชอัตโนมัติ</span>
+          </div>
+          <div class="ticker-track" id="tickerTrack"></div>
+        </section>
+
+        <section class="main-grid">
+          <article class="panel map-panel">
+            <div class="section-heading">
+              <span>ผังเครื่องจักร</span>
+              <div class="map-legend">
+                <span><i class="dot running-dot"></i>ทำงาน</span>
+                <span><i class="dot warning-dot"></i>ต้องตรวจสอบ</span>
+                <span><i class="dot down-dot"></i>หยุด</span>
+              </div>
+            </div>
+
+            <div class="plant-map" id="plantMap" aria-label="ผังเครื่องจักรในโรงงาน"></div>
+            <section class="focus-strip" id="focusStrip" aria-live="polite"></section>
+          </article>
+
+          <article class="panel detail-panel">
+            <div class="section-heading">
+              <span>สถานะเครื่องจักร</span>
+              <span class="badge neutral">9 เครื่อง</span>
+            </div>
+            <section class="inspector panel" id="inspector">
+              <div class="inspector-heading">
+                <div>
+                  <p class="eyebrow">เครื่องที่เลือก</p>
+                  <h3 id="inspectorTitle">MC 10</h3>
+                </div>
+                <span class="badge status-running" id="inspectorStatus">ทำงาน</span>
+              </div>
+              <p class="inspector-copy" id="inspectorSummary">
+                การผลิตคงที่ อุณหภูมิและแนวโน้มผลผลิตอยู่ในเกณฑ์ปกติ
+              </p>
+              <div class="inspector-grid">
+                <div>
+                  <span>พื้นที่</span>
+                  <strong id="inspectorArea">ตัดแต่ง</strong>
+                </div>
+                <div>
+                  <span>ผู้ปฏิบัติงาน</span>
+                  <strong id="inspectorOperator">Anan K.</strong>
+                </div>
+                <div>
+                  <span>รอบเวลา</span>
+                  <strong id="inspectorCycle">46 วินาที</strong>
+                </div>
+                <div>
+                  <span>OEE</span>
+                  <strong id="inspectorOee">94%</strong>
+                </div>
+                <div>
+                  <span>ผลผลิต</span>
+                  <strong id="inspectorOutput">1,280 ชิ้น</strong>
+                </div>
+                <div>
+                  <span>ชิ้นงานปัจจุบัน</span>
+                  <strong id="inspectorPartCode">609551</strong>
+                </div>
+                <div>
+                  <span>ชื่อชิ้นงาน</span>
+                  <strong id="inspectorPartName">INST I190, LH 07 N743</strong>
+                </div>
+                <div>
+                  <span>QR ปัจจุบัน</span>
+                  <strong id="inspectorQrValue">609551</strong>
+                </div>
+                <div>
+                  <span>ซ่อมบำรุงล่าสุด</span>
+                  <strong id="inspectorService">2 ชั่วโมงก่อน</strong>
+                </div>
+              </div>
+            </section>
+            <div class="machine-list" id="machineList"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="./data/qr-mapping-data.js"></script>
+    <script src="./data/current-machine-jobs-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>สแกน QR เพื่ออัปเดตเครื่องจักร</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell scan-shell">
+      <main class="dashboard">
+        <header class="topbar panel">
+          <div>
+            <p class="eyebrow">สถานีสแกน</p>
+            <h1>อัปเดตงานปัจจุบันของเครื่องจักร</h1>
+            <p class="lead">เลือก MC แล้วสแกนหรือกรอก QR จาก Part Tag เพื่ออัปเดตสถานะล่าสุด</p>
+          </div>
+          <div class="topbar-meta">
+            <div>
+              <span>ใช้งานร่วมกับ</span>
+              <strong><a class="inline-link" href="./index.html">หน้าจอ Monitor</a></strong>
+            </div>
+          </div>
+        </header>
+
+        <section class="main-grid scan-grid">
+          <article class="panel detail-panel">
+            <div class="section-heading">
+              <span>อัปเดตจากการสแกน</span>
+              <span class="badge live">พร้อมใช้งาน</span>
+            </div>
+
+            <form class="scan-form" id="scanForm">
+              <label class="field">
+                <span>เครื่องจักร (MC)</span>
+                <select id="machineSelect" required></select>
+              </label>
+
+              <label class="field">
+                <span>พื้นที่ / กระบวนการที่แสดงบนจอ</span>
+                <select id="areaInput" name="areaInput" required>
+                  <option value="Injection">Injection</option>
+                  <option value="Assembly">Assembly</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>QR จาก Part Tag</span>
+                <input
+                  id="qrInput"
+                  name="qrInput"
+                  type="text"
+                  autocomplete="off"
+                  inputmode="none"
+                  placeholder="พร้อมสแกน QR จาก Part Tag"
+                  autofocus
+                  required
+                />
+                <small class="field-hint">เลือก MC แล้วสามารถยิงสแกนเข้าช่องนี้ได้ทันที</small>
+              </label>
+
+              <label class="field">
+                <span>ผู้สแกน / สถานี</span>
+                <input id="scannerInput" name="scannerInput" type="text" value="station-01" />
+              </label>
+
+              <div class="scan-actions">
+                <button type="submit" class="action-button primary">บันทึกการสแกน</button>
+                <button type="button" class="action-button" id="resetStorageButton">รีเซ็ตกลับค่าเริ่มต้น</button>
+              </div>
+            </form>
+
+            <section class="scan-result panel" id="scanResult" aria-live="polite">
+              <p class="eyebrow">ผลการตรวจสอบ</p>
+              <h3 id="resultTitle">ยังไม่มีการสแกนล่าสุด</h3>
+              <p class="inspector-copy" id="resultMessage">เมื่อสแกนแล้ว ระบบจะบอกว่าเครื่องที่เลือกกำลังผลิตชิ้นงานอะไร</p>
+            </section>
+          </article>
+
+          <article class="panel detail-panel">
+            <div class="section-heading">
+              <span>สถานะล่าสุดของแต่ละเครื่อง</span>
+              <span class="badge neutral" id="jobCountBadge">-- เครื่อง</span>
+            </div>
+            <div class="machine-list" id="jobList"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="./data/qr-mapping-data.js"></script>
+    <script src="./data/current-machine-jobs-data.js"></script>
+    <script src="./scan.js"></script>
+  </body>
+</html>
