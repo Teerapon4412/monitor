@@ -79,6 +79,16 @@ function getPartFromQr(qrValue) {
   return qrLookup.get(qrValue) || null;
 }
 
+function parseQrPayload(rawValue) {
+  const directValue = rawValue.trim();
+  const [partCode = ""] = directValue.split("-");
+
+  return {
+    directValue,
+    partCode
+  };
+}
+
 function getDefaultArea(machineId) {
   return defaultJobs[machineId]?.area || defaultMachineAreas[machineId] || "";
 }
@@ -100,7 +110,7 @@ function renderJobList() {
 
   machineIds.forEach((machineId) => {
     const job = jobs[machineId];
-    const part = getPartFromQr(job?.qrValue);
+    const part = getPartFromQr(job?.partCode || job?.qrValue);
     const card = document.createElement("article");
     card.className = "machine-card";
     card.innerHTML = `
@@ -117,11 +127,11 @@ function renderJobList() {
       </div>
       <div class="machine-values">
         <span>QR ปัจจุบัน</span>
-        <strong>${job?.qrValue || "--"}</strong>
+        <strong>${job?.directValue || job?.qrValue || "--"}</strong>
       </div>
       <div class="machine-values">
         <span>ชิ้นงานปัจจุบัน</span>
-        <strong>${part?.entityCode || "ไม่พบใน Mapping"}</strong>
+        <strong>${job?.partCode || part?.entityCode || "ไม่พบใน Mapping"}</strong>
       </div>
       <div class="machine-values">
         <span>ชื่อชิ้นงาน</span>
@@ -239,9 +249,9 @@ scanForm.addEventListener("submit", (event) => {
 
   const machineId = machineSelect.value;
   const area = areaInput.value.trim();
-  const qrValue = qrInput.value.trim();
+  const qrPayload = parseQrPayload(qrInput.value);
   const scannedBy = scannerInput.value.trim() || "station-01";
-  const part = getPartFromQr(qrValue);
+  const part = getPartFromQr(qrPayload.partCode);
 
   if (!area) {
     showResult("ไม่สามารถบันทึกได้", "กรุณาระบุพื้นที่หรือกระบวนการของเครื่องก่อนบันทึก");
@@ -250,7 +260,7 @@ scanForm.addEventListener("submit", (event) => {
   }
 
   if (!part) {
-    showResult("ไม่สามารถบันทึกได้", `ไม่พบ QR ${qrValue} ใน master mapping กรุณาตรวจสอบ Part Tag`);
+    showResult("ไม่สามารถบันทึกได้", `ไม่พบ partCode ${qrPayload.partCode || "-"} ใน master mapping กรุณาตรวจสอบ Part Tag`);
     focusQrInput(true);
     return;
   }
@@ -258,7 +268,9 @@ scanForm.addEventListener("submit", (event) => {
   const jobs = loadJobs();
   jobs[machineId] = {
     area,
-    qrValue,
+    directValue: qrPayload.directValue,
+    partCode: qrPayload.partCode,
+    qrValue: qrPayload.directValue,
     updatedAt: new Date().toISOString(),
     scannedBy
   };
@@ -267,7 +279,7 @@ scanForm.addEventListener("submit", (event) => {
   renderJobList();
   showResult(
     `บันทึก ${machineId} เรียบร้อย`,
-    `${machineId} ในพื้นที่ ${area} กำลังผลิต ${part.entityCode} - ${part.entityName}`
+    `${machineId} ในพื้นที่ ${area} กำลังผลิต ${part.entityCode} - ${part.entityName} จาก QR ${qrPayload.directValue}`
   );
   qrInput.value = "";
   focusQrInput();

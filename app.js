@@ -106,7 +106,13 @@ function getMachineJob(machineId) {
 }
 
 function getMachineQrValue(machine) {
-  return getMachineJob(machine.id)?.qrValue || machine.currentQr || null;
+  const machineJob = getMachineJob(machine.id);
+  return machineJob?.directValue || machineJob?.qrValue || machine.currentQr || null;
+}
+
+function getMachinePartCode(machine) {
+  const machineJob = getMachineJob(machine.id);
+  return machineJob?.partCode || machineJob?.qrValue || machine.currentQr || null;
 }
 
 function getMachineArea(machine) {
@@ -119,13 +125,13 @@ function getMachine(machineId) {
 }
 
 function getCurrentPart(machine) {
-  const qrValue = machine ? getMachineQrValue(machine) : null;
+  const partCode = machine ? getMachinePartCode(machine) : null;
 
-  if (!qrValue) {
+  if (!partCode) {
     return null;
   }
 
-  return qrLookup.get(qrValue) || null;
+  return qrLookup.get(partCode) || null;
 }
 
 function getFallbackMachine() {
@@ -195,6 +201,7 @@ function setSelectedMachine(machineId) {
   const currentPart = getCurrentPart(machine);
   const machineJob = getMachineJob(machine.id);
   const currentQr = getMachineQrValue(machine);
+  const currentPartCode = getMachinePartCode(machine);
 
   selectedMachineId = machine.id;
 
@@ -207,7 +214,7 @@ function setSelectedMachine(machineId) {
   inspectorCycle.textContent = `${machine.cycle} วินาที`;
   inspectorOee.textContent = `${machine.oee}%`;
   inspectorOutput.textContent = `${machine.output.toLocaleString()} ชิ้น`;
-  inspectorPartCode.textContent = currentPart?.entityCode || "ไม่ทราบ";
+  inspectorPartCode.textContent = currentPartCode || currentPart?.entityCode || "ไม่ทราบ";
   inspectorPartName.textContent = currentPart?.entityName || "ไม่พบข้อมูลใน QR Mapping";
   inspectorQrValue.textContent = currentQr || "--";
   inspectorService.textContent = machineJob?.updatedAt ? formatLastScan(machineJob.updatedAt) : formatRelativeService(machine.service);
@@ -307,7 +314,7 @@ function renderMachines() {
       </header>
       <div class="machine-values">
         <span>ชิ้นงานปัจจุบัน</span>
-        <strong>${getCurrentPart(machine)?.entityCode || "ไม่ทราบ"}</strong>
+        <strong>${getMachinePartCode(machine) || getCurrentPart(machine)?.entityCode || "ไม่ทราบ"}</strong>
       </div>
       <div class="machine-values">
         <span>QR ล่าสุด</span>
