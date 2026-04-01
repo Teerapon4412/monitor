@@ -15,6 +15,9 @@ const stopCameraButton = document.getElementById("stopCameraButton");
 const cameraPreview = document.getElementById("cameraPreview");
 const cameraStatus = document.getElementById("cameraStatus");
 const cameraMessage = document.getElementById("cameraMessage");
+const scannedDirectValue = document.getElementById("scannedDirectValue");
+const scannedPartCode = document.getElementById("scannedPartCode");
+const scannedPartName = document.getElementById("scannedPartName");
 
 const qrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
 const qrLookup = new Map(qrMappings.map((mapping) => [mapping.qrValue, mapping]));
@@ -147,6 +150,15 @@ function showResult(title, message) {
   resultMessage.textContent = message;
 }
 
+function renderScanReadout(rawValue = "") {
+  const qrPayload = parseQrPayload(rawValue);
+  const part = getPartFromQr(qrPayload.partCode);
+
+  scannedDirectValue.textContent = qrPayload.directValue || "--";
+  scannedPartCode.textContent = qrPayload.partCode || "--";
+  scannedPartName.textContent = part?.entityName || "--";
+}
+
 function focusQrInput(selectValue = false) {
   window.setTimeout(() => {
     qrInput.focus();
@@ -201,6 +213,7 @@ async function scanFrame() {
 
       if (qrValue) {
         qrInput.value = qrValue;
+        renderScanReadout(qrValue);
         setCameraState("พบ QR แล้ว", `อ่านค่า ${qrValue} แล้ว กำลังบันทึกให้อัตโนมัติ`);
         stopCamera();
         submitScan();
@@ -252,6 +265,7 @@ scanForm.addEventListener("submit", (event) => {
   const qrPayload = parseQrPayload(qrInput.value);
   const scannedBy = scannerInput.value.trim() || "station-01";
   const part = getPartFromQr(qrPayload.partCode);
+  renderScanReadout(qrPayload.directValue);
 
   if (!area) {
     showResult("ไม่สามารถบันทึกได้", "กรุณาระบุพื้นที่หรือกระบวนการของเครื่องก่อนบันทึก");
@@ -282,6 +296,7 @@ scanForm.addEventListener("submit", (event) => {
     `${machineId} ในพื้นที่ ${area} กำลังผลิต ${part.entityCode} - ${part.entityName} จาก QR ${qrPayload.directValue}`
   );
   qrInput.value = "";
+  renderScanReadout("");
   focusQrInput();
 });
 
@@ -297,6 +312,10 @@ qrInput.addEventListener("keydown", (event) => {
   }
 
   submitScan();
+});
+
+qrInput.addEventListener("input", () => {
+  renderScanReadout(qrInput.value);
 });
 
 resetStorageButton.addEventListener("click", () => {
@@ -335,6 +354,7 @@ document.addEventListener("click", (event) => {
 renderMachineOptions();
 syncAreaInput();
 renderJobList();
+renderScanReadout("");
 focusQrInput();
 
 window.addEventListener("beforeunload", () => {
