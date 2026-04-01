@@ -10,12 +10,20 @@ const resultTitle = document.getElementById("resultTitle");
 const resultMessage = document.getElementById("resultMessage");
 const jobList = document.getElementById("jobList");
 const jobCountBadge = document.getElementById("jobCountBadge");
+const startCameraButton = document.getElementById("startCameraButton");
+const stopCameraButton = document.getElementById("stopCameraButton");
+const cameraPreview = document.getElementById("cameraPreview");
+const cameraStatus = document.getElementById("cameraStatus");
+const cameraMessage = document.getElementById("cameraMessage");
 
 const qrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
 const qrLookup = new Map(qrMappings.map((mapping) => [mapping.qrValue, mapping]));
 const defaultJobs = window.currentMachineJobsData?.jobs || {};
 const machineIds = Object.keys(defaultJobs);
 let isSubmittingScan = false;
+let cameraStream;
+let scanLoopId;
+let barcodeDetector;
 const defaultMachineAreas = {
   "MC 10": "Injection",
   "MC 12": "Injection",
@@ -150,6 +158,82 @@ function submitScan() {
   }, 150);
 }
 
+function setCameraState(statusText, messageText) {
+  cameraStatus.textContent = statusText;
+  cameraMessage.textContent = messageText;
+}
+
+function stopCamera() {
+  if (scanLoopId) {
+    window.cancelAnimationFrame(scanLoopId);
+    scanLoopId = null;
+  }
+
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((track) => track.stop());
+    cameraStream = null;
+  }
+
+  cameraPreview.srcObject = null;
+  setCameraState("ปิดกล้อง", "บนมือถือกดเปิดกล้อง แล้วเล็ง Part Tag ให้ QR อยู่กลางกรอบ");
+}
+
+async function scanFrame() {
+  if (!cameraStream || !barcodeDetector) {
+    return;
+  }
+
+  try {
+    const barcodes = await barcodeDetector.detect(cameraPreview);
+
+    if (barcodes.length > 0) {
+      const qrValue = barcodes[0].rawValue?.trim();
+
+      if (qrValue) {
+        qrInput.value = qrValue;
+        setCameraState("พบ QR แล้ว", `อ่านค่า ${qrValue} แล้ว กำลังบันทึกให้อัตโนมัติ`);
+        stopCamera();
+        submitScan();
+        return;
+      }
+    }
+  } catch (error) {
+    setCameraState("สแกนไม่สำเร็จ", "กล้องเปิดอยู่ แต่ยังอ่าน QR ไม่ได้ ลองขยับระยะหรือแสง");
+  }
+
+  scanLoopId = window.requestAnimationFrame(scanFrame);
+}
+
+async function startCamera() {
+  if (!("mediaDevices" in navigator) || !navigator.mediaDevices.getUserMedia) {
+    setCameraState("ไม่รองรับ", "เบราว์เซอร์นี้ไม่รองรับการเปิดกล้องสำหรับสแกน");
+    return;
+  }
+
+  if (!("BarcodeDetector" in window)) {
+    setCameraState("ไม่รองรับ", "เบราว์เซอร์นี้ยังไม่รองรับการอ่าน QR อัตโนมัติ ให้พิมพ์หรือใช้เครื่องสแกนแทน");
+    return;
+  }
+
+  barcodeDetector = new window.BarcodeDetector({ formats: ["qr_code"] });
+
+  try {
+    stopCamera();
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" }
+      },
+      audio: false
+    });
+    cameraPreview.srcObject = cameraStream;
+    await cameraPreview.play();
+    setCameraState("เปิดกล้องแล้ว", "เล็ง QR จาก Part Tag ให้เต็มกรอบ กล้องจะอ่านและบันทึกอัตโนมัติ");
+    scanLoopId = window.requestAnimationFrame(scanFrame);
+  } catch (error) {
+    setCameraState("เปิดกล้องไม่ได้", "กรุณาอนุญาตการใช้กล้อง หรือเปิดผ่าน HTTPS บนมือถือ");
+  }
+}
+
 scanForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
@@ -210,6 +294,15 @@ resetStorageButton.addEventListener("click", () => {
   focusQrInput();
 });
 
+startCameraButton.addEventListener("click", async () => {
+  await startCamera();
+});
+
+stopCameraButton.addEventListener("click", () => {
+  stopCamera();
+  focusQrInput();
+});
+
 machineSelect.addEventListener("change", () => {
   syncAreaInput();
   focusQrInput();
@@ -231,3 +324,7 @@ renderMachineOptions();
 syncAreaInput();
 renderJobList();
 focusQrInput();
+
+window.addEventListener("beforeunload", () => {
+  stopCamera();
+});

@@ -30,6 +30,19 @@
               <span class="badge live">พร้อมใช้งาน</span>
             </div>
 
+            <section class="scan-camera panel">
+              <div class="section-heading">
+                <span>สแกนจากมือถือ</span>
+                <span class="badge neutral" id="cameraStatus">ปิดกล้อง</span>
+              </div>
+              <video id="cameraPreview" class="camera-preview" autoplay playsinline muted></video>
+              <div class="scan-actions">
+                <button type="button" class="action-button primary" id="startCameraButton">เปิดกล้องสแกน QR</button>
+                <button type="button" class="action-button" id="stopCameraButton">ปิดกล้อง</button>
+              </div>
+              <p class="inspector-copy" id="cameraMessage">บนมือถือกดเปิดกล้อง แล้วเล็ง Part Tag ให้ QR อยู่กลางกรอบ</p>
+            </section>
+
             <form class="scan-form" id="scanForm">
               <label class="field">
                 <span>เครื่องจักร (MC)</span>

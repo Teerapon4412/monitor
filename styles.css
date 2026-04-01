@@ -444,6 +444,24 @@ h2 {
   gap: 16px;
 }
 
+.scan-camera {
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.camera-preview {
+  width: 100%;
+  min-height: 240px;
+  max-height: 360px;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(rgba(92, 225, 230, 0.08), rgba(92, 225, 230, 0.04)),
+    linear-gradient(180deg, rgba(9, 27, 49, 0.95), rgba(4, 15, 28, 0.98));
+  margin-bottom: 14px;
+}
+
 .field {
   display: grid;
   gap: 8px;
