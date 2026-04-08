@@ -6,9 +6,14 @@ create table if not exists public.machine_jobs (
   part_name text not null default '',
   entity_type text not null default 'PART',
   qr_value text not null default '',
+  status text not null default '',
+  detail text not null default '',
   updated_at timestamptz not null default now(),
   scanned_by text not null default ''
 );
+
+alter table public.machine_jobs add column if not exists status text not null default '';
+alter table public.machine_jobs add column if not exists detail text not null default '';
 
 alter table public.machine_jobs enable row level security;
 

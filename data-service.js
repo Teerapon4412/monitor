@@ -40,6 +40,8 @@
       partName: row.part_name || "",
       entityType: row.entity_type || "PART",
       qrValue: row.qr_value || "",
+      status: row.status || "",
+      detail: row.detail || "",
       updatedAt: row.updated_at || "",
       scannedBy: row.scanned_by || ""
     };
@@ -54,6 +56,8 @@
       part_name: job.partName || "",
       entity_type: job.entityType || "PART",
       qr_value: job.qrValue || "",
+      status: job.status || "",
+      detail: job.detail || "",
       updated_at: job.updatedAt || new Date().toISOString(),
       scanned_by: job.scannedBy || ""
     };
@@ -85,7 +89,7 @@
     }
 
     const response = await fetch(
-      `${config.url}/rest/v1/machine_jobs?select=machine_id,area,direct_value,part_code,part_name,entity_type,qr_value,updated_at,scanned_by`,
+      `${config.url}/rest/v1/machine_jobs?select=machine_id,area,direct_value,part_code,part_name,entity_type,qr_value,status,detail,updated_at,scanned_by`,
       {
         method: "GET",
         headers: getHeaders()
