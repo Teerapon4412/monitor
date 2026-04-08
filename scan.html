@@ -98,6 +98,15 @@
                 <select id="scannerInput" name="scannerInput" required></select>
               </label>
 
+              <label class="field">
+                <span>อัปเดต Status</span>
+                <select id="statusInput" name="statusInput" required>
+                  <option value="running">ทำงาน</option>
+                  <option value="warning">ต้องตรวจสอบ</option>
+                  <option value="down">หยุด</option>
+                </select>
+              </label>
+
               <div class="scan-actions">
                 <button type="submit" class="action-button primary">บันทึกการสแกน</button>
                 <button type="button" class="action-button" id="resetStorageButton">รีเซ็ตกลับค่าเริ่มต้น</button>

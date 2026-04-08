@@ -4,6 +4,7 @@ const machineSelect = document.getElementById("machineSelect");
 const areaInput = document.getElementById("areaInput");
 const qrInput = document.getElementById("qrInput");
 const scannerInput = document.getElementById("scannerInput");
+const statusInput = document.getElementById("statusInput");
 const scanForm = document.getElementById("scanForm");
 const resetStorageButton = document.getElementById("resetStorageButton");
 const resultTitle = document.getElementById("resultTitle");
@@ -55,6 +56,17 @@ const defaultMachineAreas = {
   "MC 16": "Injection",
   "MC 19": "Assembly",
   "MC 18": "Assembly"
+};
+const defaultMachineStatuses = {
+  "MC 10": "running",
+  "MC 12": "running",
+  "MC 13": "warning",
+  "MC 15": "running",
+  "MC 11": "running",
+  "MC 07": "down",
+  "MC 16": "running",
+  "MC 19": "warning",
+  "MC 18": "running"
 };
 
 function cloneJobs(jobs) {
@@ -296,6 +308,10 @@ function getDefaultArea(machineId) {
   return defaultJobs[machineId]?.area || defaultMachineAreas[machineId] || "";
 }
 
+function getDefaultStatus(machineId) {
+  return defaultJobs[machineId]?.status || defaultMachineStatuses[machineId] || "running";
+}
+
 function renderMachineOptions() {
   machineSelect.innerHTML = machineIds
     .map((machineId) => `<option value="${machineId}">${machineId}</option>`)
@@ -334,6 +350,10 @@ function syncAreaInput() {
   areaInput.value = getDefaultArea(machineSelect.value);
 }
 
+function syncStatusInput() {
+  statusInput.value = jobsState[machineSelect.value]?.status || getDefaultStatus(machineSelect.value);
+}
+
 function renderJobList() {
   jobCountBadge.textContent = `${machineIds.length} เครื่อง`;
   jobList.innerHTML = "";
@@ -349,7 +369,7 @@ function renderJobList() {
           <h3>${machineId}</h3>
           <div class="machine-meta">อัปเดตล่าสุด ${formatDateTime(job?.updatedAt)}</div>
         </div>
-        <span class="badge live">${job?.scannedBy || "--"}</span>
+        <span class="badge status-${job?.status || getDefaultStatus(machineId)}">${job?.scannedBy || "--"}</span>
       </header>
       <div class="machine-values">
         <span>พื้นที่ / กระบวนการ</span>
@@ -485,6 +505,7 @@ scanForm.addEventListener("submit", async (event) => {
 
   const machineId = machineSelect.value;
   const area = areaInput.value.trim();
+  const status = statusInput.value;
   const lookup = getQrLookup(qrInput.value);
   const scannedBy = scannerInput.value.trim() || "station-01";
   const selectedPart = getSelectedPartCandidate();
@@ -516,6 +537,7 @@ scanForm.addEventListener("submit", async (event) => {
     partName: selectedPart.entityName || lookup.entityName || null,
     entityType: selectedPart.entityType || lookup.entityType || "PART",
     qrValue: lookup.qrValue,
+    status,
     updatedAt: new Date().toISOString(),
     scannedBy
   };
@@ -581,6 +603,7 @@ photoInput.addEventListener("change", async () => {
 
 machineSelect.addEventListener("change", () => {
   syncAreaInput();
+  syncStatusInput();
   focusQrInput();
 });
 
@@ -601,6 +624,7 @@ async function initializeScanPage() {
   renderMachineOptions();
   renderScannerOptions();
   syncAreaInput();
+  syncStatusInput();
   renderJobList();
   renderPartSelection("");
   renderScanReadout("");

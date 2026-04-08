@@ -126,6 +126,10 @@ function getMachineArea(machine) {
   return normalizeArea(getMachineJob(machine.id)?.area, fallbackArea);
 }
 
+function getMachineStatus(machine) {
+  return getMachineJob(machine.id)?.status || machine.status;
+}
+
 function getMachine(machineId) {
   return machines.find((machine) => machine.id === machineId);
 }
@@ -217,12 +221,13 @@ function setSelectedMachine(machineId) {
   const machineJob = getMachineJob(machine.id);
   const currentQr = getMachineQrValue(machine);
   const currentPartCode = getMachinePartCode(machine);
+  const machineStatus = getMachineStatus(machine);
 
   selectedMachineId = machine.id;
 
   inspectorTitle.textContent = machine.id;
-  inspectorStatus.textContent = statusLabel[machine.status];
-  inspectorStatus.className = `badge status-${machine.status}`;
+  inspectorStatus.textContent = statusLabel[machineStatus];
+  inspectorStatus.className = `badge status-${machineStatus}`;
   inspectorSummary.textContent = machine.note;
   inspectorArea.textContent = getMachineArea(machine);
   inspectorOperator.textContent = machine.operator;
@@ -242,11 +247,11 @@ function setSelectedMachine(machineId) {
 }
 
 function renderSummary() {
-  const running = machines.filter((machine) => machine.status === "running").length;
-  const warning = machines.filter((machine) => machine.status === "warning").length;
-  const down = machines.filter((machine) => machine.status === "down").length;
+  const running = machines.filter((machine) => getMachineStatus(machine) === "running").length;
+  const warning = machines.filter((machine) => getMachineStatus(machine) === "warning").length;
+  const down = machines.filter((machine) => getMachineStatus(machine) === "down").length;
   const cycleMachines = machines.filter((machine) => machine.cycle > 0);
-  const activeMachines = machines.filter((machine) => machine.status !== "down");
+  const activeMachines = machines.filter((machine) => getMachineStatus(machine) !== "down");
   const avgCycle = Math.round(cycleMachines.reduce((sum, machine) => sum + machine.cycle, 0) / cycleMachines.length);
   const avgOee = activeMachines.length
     ? activeMachines.reduce((sum, machine) => sum + machine.oee, 0) / activeMachines.length
@@ -317,6 +322,7 @@ function renderMachines() {
   plantMap.innerHTML = "";
 
   machines.forEach((machine) => {
+    const machineStatus = getMachineStatus(machine);
     const card = document.createElement("article");
     card.className = "machine-card";
     card.innerHTML = `
@@ -325,7 +331,7 @@ function renderMachines() {
           <h3>${machine.id}</h3>
           <div class="machine-meta">${getMachineArea(machine)} ไลน์</div>
         </div>
-        <span class="badge status-${machine.status}">${statusLabel[machine.status]}</span>
+        <span class="badge status-${machineStatus}">${statusLabel[machineStatus]}</span>
       </header>
       <div class="machine-values">
         <span>ชิ้นงานปัจจุบัน</span>
@@ -344,14 +350,14 @@ function renderMachines() {
 
     const node = document.createElement("button");
     node.type = "button";
-    node.className = `machine-node status-${machine.status}`;
+    node.className = `machine-node status-${machineStatus}`;
     node.dataset.machineId = machine.id;
     node.style.left = `${machine.x}%`;
     node.style.top = `${machine.y}%`;
     node.innerHTML = `
       <h3>${machine.id}</h3>
       <p>${getMachineArea(machine)}</p>
-      <small>${statusLabel[machine.status]}</small>
+      <small>${statusLabel[machineStatus]}</small>
     `;
     node.addEventListener("click", () => {
       setSelectedMachine(machine.id);
