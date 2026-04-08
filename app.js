@@ -270,10 +270,7 @@ function setSelectedMachine(machineId) {
   inspectorTitle.textContent = machine.id;
   inspectorStatus.textContent = statusLabel[machineStatus];
   inspectorStatus.className = `badge status-${machineStatus}`;
-  inspectorSummary.textContent = machine.note;
-  if (machineJob?.detail) {
-    inspectorSummary.textContent = machineJob.detail;
-  }
+  inspectorSummary.textContent = machineJob?.detail || "ยังไม่มี Detail จากหน้า Scan QR";
   inspectorArea.textContent = getMachineArea(machine);
   inspectorOperator.textContent = getMachineOperator(machine);
   inspectorCycle.textContent = `${machine.cycle} วินาที`;
