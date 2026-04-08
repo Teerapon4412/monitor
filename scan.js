@@ -21,6 +21,7 @@ const scannedPartName = document.getElementById("scannedPartName");
 
 const qrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
 const qrLookup = new Map(qrMappings.map((mapping) => [mapping.qrValue, mapping]));
+const catalogLookup = new Map(qrMappings.map((mapping) => [mapping.entityCode, mapping]));
 const defaultJobs = window.currentMachineJobsData?.jobs || {};
 const machineIds = Object.keys(defaultJobs);
 let isSubmittingScan = false;
@@ -78,17 +79,78 @@ function formatDateTime(isoString) {
   });
 }
 
-function getPartFromQr(qrValue) {
-  return qrLookup.get(qrValue) || null;
-}
-
-function parseQrPayload(rawValue) {
+function parseScannedQr(rawValue) {
   const directValue = rawValue.trim();
-  const [partCode = ""] = directValue.split("-");
+  const segments = directValue.split("-").filter(Boolean);
+  const primarySegment = segments[0] || directValue;
+  const trailingSegments = segments.slice(1);
+  const referenceNo = trailingSegments.length > 0 ? trailingSegments.join("-") : null;
+  const workOrderNo = trailingSegments.find((segment) => /^(wo|mo|job)\w+/i.test(segment)) || null;
+  const qtySegment = trailingSegments.find((segment) => /^qty[:=]?\d+$/i.test(segment));
+  const qty = qtySegment ? Number(qtySegment.replace(/[^\d]/g, "")) : null;
+  const partCodeMatch = primarySegment.match(/[A-Z]{1,4}\d{6,}|\d{6,}/i);
+  const partCode = partCodeMatch ? partCodeMatch[0].toUpperCase() : primarySegment.toUpperCase();
 
   return {
     directValue,
-    partCode
+    referenceNo,
+    partCode,
+    workOrderNo,
+    qty
+  };
+}
+
+function resolveLookupKeys(parsed) {
+  return [parsed.directValue, parsed.referenceNo, parsed.partCode]
+    .map((value) => (typeof value === "string" ? value.trim() : value))
+    .filter((value, index, values) => value && values.indexOf(value) === index);
+}
+
+function getQrLookup(rawValue) {
+  const parsed = typeof rawValue === "string" ? parseScannedQr(rawValue) : rawValue;
+  const candidateKeys = resolveLookupKeys(parsed);
+
+  for (const key of candidateKeys) {
+    const qrMatch = qrLookup.get(key);
+
+    if (qrMatch) {
+      return {
+        found: true,
+        qrValue: parsed.directValue,
+        matchedQrValue: key,
+        entityType: qrMatch.entityType,
+        entityCode: qrMatch.entityCode,
+        entityName: qrMatch.entityName,
+        catalogItem: catalogLookup.get(qrMatch.entityCode) || null,
+        parsed
+      };
+    }
+  }
+
+  const catalogItem = parsed.partCode ? catalogLookup.get(parsed.partCode) : null;
+
+  if (catalogItem) {
+    return {
+      found: true,
+      qrValue: parsed.directValue,
+      matchedQrValue: parsed.partCode,
+      entityType: catalogItem.entityType,
+      entityCode: catalogItem.entityCode,
+      entityName: catalogItem.entityName,
+      catalogItem,
+      parsed
+    };
+  }
+
+  return {
+    found: false,
+    qrValue: parsed.directValue,
+    matchedQrValue: null,
+    entityType: null,
+    entityCode: parsed.partCode || null,
+    entityName: null,
+    catalogItem: null,
+    parsed
   };
 }
 
@@ -113,7 +175,7 @@ function renderJobList() {
 
   machineIds.forEach((machineId) => {
     const job = jobs[machineId];
-    const part = getPartFromQr(job?.partCode || job?.qrValue);
+    const lookup = getQrLookup(job?.directValue || job?.partCode || job?.qrValue || "");
     const card = document.createElement("article");
     card.className = "machine-card";
     card.innerHTML = `
@@ -134,11 +196,11 @@ function renderJobList() {
       </div>
       <div class="machine-values">
         <span>ชิ้นงานปัจจุบัน</span>
-        <strong>${job?.partCode || part?.entityCode || "ไม่พบใน Mapping"}</strong>
+        <strong>${job?.partCode || lookup.entityCode || "ไม่พบใน Mapping"}</strong>
       </div>
       <div class="machine-values">
         <span>ชื่อชิ้นงาน</span>
-        <strong>${part?.entityName || "-"}</strong>
+        <strong>${lookup.entityName || "-"}</strong>
       </div>
     `;
     jobList.appendChild(card);
@@ -151,12 +213,11 @@ function showResult(title, message) {
 }
 
 function renderScanReadout(rawValue = "") {
-  const qrPayload = parseQrPayload(rawValue);
-  const part = getPartFromQr(qrPayload.partCode);
+  const lookup = getQrLookup(rawValue);
 
-  scannedDirectValue.textContent = qrPayload.directValue || "--";
-  scannedPartCode.textContent = qrPayload.partCode || "--";
-  scannedPartName.textContent = part?.entityName || "--";
+  scannedDirectValue.textContent = lookup.parsed.directValue || "--";
+  scannedPartCode.textContent = lookup.parsed.partCode || "--";
+  scannedPartName.textContent = lookup.entityName || "--";
 }
 
 function focusQrInput(selectValue = false) {
@@ -262,10 +323,9 @@ scanForm.addEventListener("submit", (event) => {
 
   const machineId = machineSelect.value;
   const area = areaInput.value.trim();
-  const qrPayload = parseQrPayload(qrInput.value);
+  const lookup = getQrLookup(qrInput.value);
   const scannedBy = scannerInput.value.trim() || "station-01";
-  const part = getPartFromQr(qrPayload.partCode);
-  renderScanReadout(qrPayload.directValue);
+  renderScanReadout(lookup.qrValue);
 
   if (!area) {
     showResult("ไม่สามารถบันทึกได้", "กรุณาระบุพื้นที่หรือกระบวนการของเครื่องก่อนบันทึก");
@@ -273,8 +333,8 @@ scanForm.addEventListener("submit", (event) => {
     return;
   }
 
-  if (!part) {
-    showResult("ไม่สามารถบันทึกได้", `ไม่พบ partCode ${qrPayload.partCode || "-"} ใน master mapping กรุณาตรวจสอบ Part Tag`);
+  if (!lookup.found) {
+    showResult("ไม่สามารถบันทึกได้", `ไม่พบ partCode ${lookup.parsed.partCode || "-"} ใน master mapping กรุณาตรวจสอบ Part Tag`);
     focusQrInput(true);
     return;
   }
@@ -282,9 +342,9 @@ scanForm.addEventListener("submit", (event) => {
   const jobs = loadJobs();
   jobs[machineId] = {
     area,
-    directValue: qrPayload.directValue,
-    partCode: qrPayload.partCode,
-    qrValue: qrPayload.directValue,
+    directValue: lookup.parsed.directValue,
+    partCode: lookup.entityCode || lookup.parsed.partCode,
+    qrValue: lookup.qrValue,
     updatedAt: new Date().toISOString(),
     scannedBy
   };
@@ -293,7 +353,7 @@ scanForm.addEventListener("submit", (event) => {
   renderJobList();
   showResult(
     `บันทึก ${machineId} เรียบร้อย`,
-    `${machineId} ในพื้นที่ ${area} กำลังผลิต ${part.entityCode} - ${part.entityName} จาก QR ${qrPayload.directValue}`
+    `${machineId} ในพื้นที่ ${area} กำลังผลิต ${lookup.entityCode} - ${lookup.entityName} จาก QR ${lookup.qrValue}`
   );
   qrInput.value = "";
   renderScanReadout("");
