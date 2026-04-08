@@ -356,7 +356,17 @@ function renderScanReadout(rawValue = "", selectedPart = null) {
   scannedPartName.textContent = selectedPart?.entityName || lookup.entityName || "--";
 }
 
-function focusQrInput(selectValue = false) {
+function isTouchLikeDevice() {
+  return window.matchMedia("(pointer: coarse)").matches || window.matchMedia("(hover: none)").matches;
+}
+
+function focusQrInput(selectValue = false, options = {}) {
+  const { allowOnTouch = false } = options;
+
+  if (isTouchLikeDevice() && !allowOnTouch) {
+    return;
+  }
+
   window.setTimeout(() => {
     qrInput.focus();
     if (selectValue && qrInput.value) {
