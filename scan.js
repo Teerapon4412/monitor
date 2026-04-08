@@ -5,6 +5,10 @@ const areaInput = document.getElementById("areaInput");
 const qrInput = document.getElementById("qrInput");
 const scannerInput = document.getElementById("scannerInput");
 const statusInput = document.getElementById("statusInput");
+const detailInput = document.getElementById("detailInput");
+const startVoiceButton = document.getElementById("startVoiceButton");
+const stopVoiceButton = document.getElementById("stopVoiceButton");
+const voiceStatus = document.getElementById("voiceStatus");
 const scanForm = document.getElementById("scanForm");
 const resetStorageButton = document.getElementById("resetStorageButton");
 const resultTitle = document.getElementById("resultTitle");
@@ -46,6 +50,7 @@ let barcodeDetector;
 let currentPartCandidates = [];
 let jobsState = cloneJobs(defaultJobs);
 let previewObjectUrl = "";
+let speechRecognition;
 const defaultMachineAreas = {
   "MC 10": "Injection",
   "MC 12": "Injection",
@@ -312,6 +317,10 @@ function getDefaultStatus(machineId) {
   return defaultJobs[machineId]?.status || defaultMachineStatuses[machineId] || "running";
 }
 
+function getDefaultDetail(machineId) {
+  return jobsState[machineId]?.detail || defaultJobs[machineId]?.detail || "";
+}
+
 function renderMachineOptions() {
   machineSelect.innerHTML = machineIds
     .map((machineId) => `<option value="${machineId}">${machineId}</option>`)
@@ -352,6 +361,10 @@ function syncAreaInput() {
 
 function syncStatusInput() {
   statusInput.value = jobsState[machineSelect.value]?.status || getDefaultStatus(machineSelect.value);
+}
+
+function syncDetailInput() {
+  detailInput.value = getDefaultDetail(machineSelect.value);
 }
 
 function renderJobList() {
@@ -441,6 +454,60 @@ function setCameraState(statusText, messageText) {
   cameraMessage.textContent = messageText;
 }
 
+function setVoiceStatus(message) {
+  voiceStatus.textContent = message;
+}
+
+function stopVoiceInput() {
+  if (speechRecognition) {
+    speechRecognition.stop();
+  }
+}
+
+function startVoiceInput() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    setVoiceStatus("เบราว์เซอร์นี้ยังไม่รองรับการพูดเป็นข้อความ กรุณาพิมพ์ Detail เอง");
+    return;
+  }
+
+  if (speechRecognition) {
+    speechRecognition.stop();
+  }
+
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.lang = "th-TH";
+  speechRecognition.interimResults = true;
+  speechRecognition.continuous = false;
+
+  speechRecognition.onstart = () => {
+    setVoiceStatus("กำลังฟังเสียง... พูดรายละเอียดสถานะเครื่องได้เลย");
+  };
+
+  speechRecognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map((result) => result[0]?.transcript || "")
+      .join("")
+      .trim();
+
+    if (transcript) {
+      detailInput.value = transcript;
+      setVoiceStatus("รับข้อความจากเสียงแล้ว สามารถแก้ไขต่อก่อนบันทึกได้");
+    }
+  };
+
+  speechRecognition.onerror = () => {
+    setVoiceStatus("ไมค์ใช้งานไม่ได้หรือไม่ได้รับอนุญาต กรุณาพิมพ์ Detail เอง");
+  };
+
+  speechRecognition.onend = () => {
+    speechRecognition = null;
+  };
+
+  speechRecognition.start();
+}
+
 function resetPhotoPreview() {
   if (previewObjectUrl) {
     URL.revokeObjectURL(previewObjectUrl);
@@ -506,6 +573,7 @@ scanForm.addEventListener("submit", async (event) => {
   const machineId = machineSelect.value;
   const area = areaInput.value.trim();
   const status = statusInput.value;
+  const detail = detailInput.value.trim();
   const lookup = getQrLookup(qrInput.value);
   const scannedBy = scannerInput.value.trim() || "station-01";
   const selectedPart = getSelectedPartCandidate();
@@ -538,6 +606,7 @@ scanForm.addEventListener("submit", async (event) => {
     entityType: selectedPart.entityType || lookup.entityType || "PART",
     qrValue: lookup.qrValue,
     status,
+    detail,
     updatedAt: new Date().toISOString(),
     scannedBy
   };
@@ -582,8 +651,10 @@ resetStorageButton.addEventListener("click", async () => {
   renderJobList();
   showResult("รีเซ็ตข้อมูลแล้ว", "สถานะเครื่องจักรถูกคืนกลับเป็นค่าเริ่มต้นจากไฟล์ตั้งต้น");
   qrInput.value = "";
+  detailInput.value = "";
   renderPartSelection("");
   renderScanReadout("");
+  setVoiceStatus("พิมพ์ข้อความได้ตามปกติ หรือกดไมค์เพื่อพูดใส่ Detail บนมือถือ");
   focusQrInput();
 });
 
@@ -596,6 +667,15 @@ stopCameraButton.addEventListener("click", () => {
   focusQrInput();
 });
 
+startVoiceButton.addEventListener("click", () => {
+  startVoiceInput();
+});
+
+stopVoiceButton.addEventListener("click", () => {
+  stopVoiceInput();
+  setVoiceStatus("หยุดไมค์แล้ว สามารถพิมพ์หรือแก้ไข Detail ต่อได้");
+});
+
 photoInput.addEventListener("change", async () => {
   const [file] = photoInput.files || [];
   await scanPhotoFile(file);
@@ -604,6 +684,7 @@ photoInput.addEventListener("change", async () => {
 machineSelect.addEventListener("change", () => {
   syncAreaInput();
   syncStatusInput();
+  syncDetailInput();
   focusQrInput();
 });
 
@@ -625,6 +706,7 @@ async function initializeScanPage() {
   renderScannerOptions();
   syncAreaInput();
   syncStatusInput();
+  syncDetailInput();
   renderJobList();
   renderPartSelection("");
   renderScanReadout("");
@@ -635,4 +717,5 @@ initializeScanPage();
 
 window.addEventListener("beforeunload", () => {
   resetPhotoPreview();
+  stopVoiceInput();
 });

@@ -107,6 +107,21 @@
                 </select>
               </label>
 
+              <label class="field">
+                <span>Detail</span>
+                <div class="scan-inline-actions detail-actions">
+                  <textarea
+                    id="detailInput"
+                    name="detailInput"
+                    rows="3"
+                    placeholder="พิมพ์รายละเอียดสถานะเครื่อง หรือใช้ปุ่มไมค์เพื่อพูดใส่ข้อความ"
+                  ></textarea>
+                  <button type="button" class="action-button compact-button" id="startVoiceButton">พูดใส่ Detail</button>
+                  <button type="button" class="action-button compact-button" id="stopVoiceButton">หยุดไมค์</button>
+                </div>
+                <small class="field-hint" id="voiceStatus">พิมพ์ข้อความได้ตามปกติ หรือกดไมค์เพื่อพูดใส่ Detail บนมือถือ</small>
+              </label>
+
               <div class="scan-actions">
                 <button type="submit" class="action-button primary">บันทึกการสแกน</button>
                 <button type="button" class="action-button" id="resetStorageButton">รีเซ็ตกลับค่าเริ่มต้น</button>

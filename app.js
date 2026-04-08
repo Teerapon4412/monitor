@@ -229,6 +229,9 @@ function setSelectedMachine(machineId) {
   inspectorStatus.textContent = statusLabel[machineStatus];
   inspectorStatus.className = `badge status-${machineStatus}`;
   inspectorSummary.textContent = machine.note;
+  if (machineJob?.detail) {
+    inspectorSummary.textContent = machineJob.detail;
+  }
   inspectorArea.textContent = getMachineArea(machine);
   inspectorOperator.textContent = machine.operator;
   inspectorCycle.textContent = `${machine.cycle} วินาที`;
@@ -336,6 +339,10 @@ function renderMachines() {
       <div class="machine-values">
         <span>ชิ้นงานปัจจุบัน</span>
         <strong>${getMachinePartCode(machine) || getCurrentPart(machine)?.entityCode || "ไม่ทราบ"}</strong>
+      </div>
+      <div class="machine-values">
+        <span>Detail</span>
+        <strong>${getMachineJob(machine.id)?.detail || "-"}</strong>
       </div>
       <div class="machine-values">
         <span>QR ล่าสุด</span>
