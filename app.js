@@ -10,12 +10,6 @@ const machines = [
   { id: "MC 18", area: "Dispatch", status: "running", output: 1134, temp: 40, x: 86, y: 84, cycle: 44, oee: 92, operator: "Namfon R.", service: "90m ago", currentQr: "WP6000012090", note: "ไลน์จ่ายงานลื่นไหลและส่งต่อไปขาออกได้ตรงเวลา" }
 ];
 
-const alerts = [
-  { machine: "MC 07", detail: "แรงดันไฮดรอลิกหาย ต้องให้ช่างเข้าตรวจสอบ", level: "critical", minutesAgo: 4 },
-  { machine: "MC 13", detail: "อุณหภูมิสปินเดิลสูงต่อเนื่องมา 7 นาที", level: "warning", minutesAgo: 7 },
-  { machine: "MC 19", detail: "อัตราการสแกนตรวจซ้ำเกินค่าที่กำหนด", level: "warning", minutesAgo: 11 }
-];
-
 const statusLabel = {
   running: "ทำงาน",
   warning: "ต้องตรวจสอบ",
@@ -219,13 +213,62 @@ function getAlertTimestampLabel(alert) {
   return "เพิ่งแจ้งเตือน";
 }
 
+function getAlertLevelFromStatus(status) {
+  if (status === "down") {
+    return "critical";
+  }
+
+  if (status === "warning") {
+    return "warning";
+  }
+
+  return null;
+}
+
+function getMinutesAgo(isoString) {
+  if (!isoString) {
+    return null;
+  }
+
+  const timestamp = new Date(isoString).getTime();
+
+  if (Number.isNaN(timestamp)) {
+    return null;
+  }
+
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+}
+
+function getLiveAlerts() {
+  return machines
+    .map((machine) => {
+      const machineJob = getMachineJob(machine.id);
+      const status = getMachineStatus(machine);
+      const level = getAlertLevelFromStatus(status);
+      const detail = machineJob?.detail?.trim();
+
+      if (!level || !detail) {
+        return null;
+      }
+
+      return {
+        machine: machine.id,
+        detail,
+        level,
+        minutesAgo: getMinutesAgo(machineJob?.updatedAt),
+        occurredAt: machineJob?.updatedAt || null
+      };
+    })
+    .filter(Boolean);
+}
+
 function getSortedAlerts() {
   const priority = {
     critical: 0,
     warning: 1
   };
 
-  return [...alerts].sort((left, right) => {
+  return getLiveAlerts().sort((left, right) => {
     const levelDiff = (priority[left.level] ?? 99) - (priority[right.level] ?? 99);
 
     if (levelDiff !== 0) {
@@ -294,13 +337,14 @@ function renderSummary() {
   const down = machines.filter((machine) => getMachineStatus(machine) === "down").length;
   const cycleMachines = machines.filter((machine) => machine.cycle > 0);
   const activeMachines = machines.filter((machine) => getMachineStatus(machine) !== "down");
+  const liveAlerts = getLiveAlerts();
   const avgCycle = Math.round(cycleMachines.reduce((sum, machine) => sum + machine.cycle, 0) / cycleMachines.length);
   const avgOee = activeMachines.length
     ? activeMachines.reduce((sum, machine) => sum + machine.oee, 0) / activeMachines.length
     : 0;
-  const critical = alerts.find((alert) => alert.level === "critical");
+  const critical = liveAlerts.find((alert) => alert.level === "critical");
   const totalOutput = machines.reduce((sum, machine) => sum + machine.output, 0);
-  const criticalCount = alerts.filter((alert) => alert.level === "critical").length;
+  const criticalCount = liveAlerts.filter((alert) => alert.level === "critical").length;
 
   lineEfficiency.textContent = `${avgOee.toFixed(1)}%`;
   criticalAlerts.textContent = String(criticalCount).padStart(2, "0");
@@ -467,13 +511,13 @@ function setTimestamp() {
 async function refreshDashboard() {
   await loadMachineJobs();
   renderMachines();
+  renderAlerts();
   renderSummary();
   setSelectedMachine(selectedMachineId);
   setTimestamp();
 }
 
 async function initializeDashboard() {
-  renderAlerts();
   renderTicker();
   await refreshDashboard();
 
