@@ -366,9 +366,9 @@ scanForm.addEventListener("submit", (event) => {
     `บันทึก ${machineId} เรียบร้อย`,
     `${machineId} ในพื้นที่ ${area} กำลังผลิต ${lookup.entityCode} - ${lookup.entityName} จาก QR ${lookup.qrValue}`
   );
-  qrInput.value = "";
-  renderScanReadout("");
-  focusQrInput();
+  qrInput.value = lookup.qrValue;
+  renderScanReadout(lookup.qrValue);
+  focusQrInput(true);
 });
 
 qrInput.addEventListener("keydown", (event) => {
@@ -393,6 +393,8 @@ resetStorageButton.addEventListener("click", () => {
   window.localStorage.removeItem(MACHINE_JOBS_STORAGE_KEY);
   renderJobList();
   showResult("รีเซ็ตข้อมูลแล้ว", "สถานะเครื่องจักรถูกคืนกลับเป็นค่าเริ่มต้นจากไฟล์ตั้งต้น");
+  qrInput.value = "";
+  renderScanReadout("");
   focusQrInput();
 });
 
