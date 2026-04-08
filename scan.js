@@ -95,22 +95,36 @@ function formatDateTime(isoString) {
 
 function parseScannedQr(rawValue) {
   const directValue = rawValue.trim();
-  const segments = directValue.split("-").filter(Boolean);
-  const primarySegment = segments[0] || directValue;
-  const trailingSegments = segments.slice(1);
-  const referenceNo = trailingSegments.length > 0 ? trailingSegments.join("-") : null;
-  const workOrderNo = trailingSegments.find((segment) => /^(wo|mo|job)\w+/i.test(segment)) || null;
-  const qtySegment = trailingSegments.find((segment) => /^qty[:=]?\d+$/i.test(segment));
-  const qty = qtySegment ? Number(qtySegment.replace(/[^\d]/g, "")) : null;
-  const partCodeMatch = primarySegment.match(/[A-Z]{1,4}\d{6,}|\d{6,}/i);
-  const partCode = partCodeMatch ? partCodeMatch[0].toUpperCase() : primarySegment.toUpperCase();
+  const compactValue = directValue.replace(/\s+/g, "");
+  const partCodeMatch = compactValue.match(/^[A-Z]{1,4}\d{6,}/i) || directValue.match(/[A-Z]{1,4}\d{6,}/i);
+  const partCode = partCodeMatch ? partCodeMatch[0].toUpperCase() : null;
+  const referenceMatch = compactValue.match(/^[A-Z]{1,4}\d{6,}-?(\d{8,})/i);
+  const referenceNo = referenceMatch ? `${partCode}-${referenceMatch[1]}` : null;
+  const workOrderMatch = compactValue.match(/WO\d+/i);
+  const workOrderNo = workOrderMatch ? workOrderMatch[0].toUpperCase() : null;
+  const dateMatch = compactValue.match(/\d{4}\/\d{2}\/\d{2}/);
+  const processMatch = compactValue.match(/(INJECTION|ASSEMBLY)/i);
+  let model = null;
+
+  if (processMatch) {
+    const processIndex = compactValue.indexOf(processMatch[0]);
+    const suffixValue = compactValue.slice(processIndex + processMatch[0].length);
+    const modelMatch = suffixValue.match(/^[A-Z]{2,}\d{2,}[A-Z0-9-]*/i);
+    model = modelMatch ? modelMatch[0].toUpperCase() : null;
+  }
+
+  const qtySegment = directValue.match(/qty[:=]?\s*(\d+)/i);
+  const qty = qtySegment ? Number(qtySegment[1]) : null;
 
   return {
     directValue,
     referenceNo,
-    partCode,
+    partCode: partCode || directValue.toUpperCase(),
     workOrderNo,
-    qty
+    qty,
+    dateCode: dateMatch ? dateMatch[0] : null,
+    process: processMatch ? processMatch[0].toUpperCase() : null,
+    model
   };
 }
 
@@ -494,7 +508,7 @@ scanForm.addEventListener("submit", (event) => {
     `บันทึก ${machineId} เรียบร้อย`,
     `${machineId} ในพื้นที่ ${area} กำลังผลิต ${selectedPart.entityCode} - ${selectedPart.entityName} จาก QR ${lookup.qrValue}`
   );
-  qrInput.value = lookup.qrValue;
+  qrInput.value = lookup.parsed.partCode || lookup.qrValue;
   renderScanReadout(lookup.qrValue, selectedPart);
   focusQrInput(true);
 });
