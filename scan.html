@@ -57,8 +57,9 @@
                     autofocus
                     required
                   />
-                  <button type="button" class="action-button primary compact-button" id="startCameraButton">สแกนด้วยมือถือ</button>
-                  <button type="button" class="action-button compact-button" id="stopCameraButton">ปิดกล้อง</button>
+                  <input id="photoInput" name="photoInput" type="file" accept="image/*" capture="environment" hidden />
+                  <button type="button" class="action-button primary compact-button" id="startCameraButton">ถ่ายรูป QR</button>
+                  <button type="button" class="action-button compact-button" id="stopCameraButton">ล้างรูป</button>
                 </div>
                 <small class="field-hint">เลือก MC แล้วสามารถยิงสแกนเข้าช่องนี้ได้ทันที</small>
               </label>
@@ -66,9 +67,9 @@
               <section class="scan-preview-card panel">
                 <div class="section-heading">
                   <span>ผลการสแกนล่าสุด</span>
-                  <span class="badge neutral" id="cameraStatus">ปิดกล้อง</span>
+                  <span class="badge neutral" id="cameraStatus">ยังไม่มีรูป</span>
                 </div>
-                <video id="cameraPreview" class="camera-preview" autoplay playsinline muted></video>
+                <img id="cameraPreview" class="camera-preview" alt="ตัวอย่างรูป QR ที่เลือก" />
                 <div class="scan-readout" id="scanReadout">
                   <div>
                     <span>Direct Value</span>
