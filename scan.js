@@ -39,6 +39,7 @@ const qrLookup = new Map(qrCodes.map((mapping) => [mapping.qrValue, mapping]));
 const catalogLookup = new Map(catalogItems.map((item) => [item.entityCode, item]));
 const defaultJobs = window.currentMachineJobsData?.jobs || {};
 const machineIds = Object.keys(defaultJobs);
+const activeEmployees = Array.isArray(window.employeesData?.employees) ? window.employeesData.employees : [];
 let isSubmittingScan = false;
 let barcodeDetector;
 let currentPartCandidates = [];
@@ -299,6 +300,34 @@ function renderMachineOptions() {
   machineSelect.innerHTML = machineIds
     .map((machineId) => `<option value="${machineId}">${machineId}</option>`)
     .join("");
+}
+
+function getEmployeeOptionValue(employee) {
+  return employee.employeeCode || employee.username || employee.fullName || employee.id;
+}
+
+function getEmployeeOptionLabel(employee) {
+  const code = employee.employeeCode || employee.username || "-";
+  const fullName = employee.fullName || code;
+  return `${code} - ${fullName}`;
+}
+
+function renderScannerOptions() {
+  if (activeEmployees.length === 0) {
+    scannerInput.innerHTML = `<option value="station-01">station-01</option>`;
+    scannerInput.value = "station-01";
+    return;
+  }
+
+  scannerInput.innerHTML = activeEmployees
+    .map((employee) => `<option value="${getEmployeeOptionValue(employee)}">${getEmployeeOptionLabel(employee)}</option>`)
+    .join("");
+
+  const defaultEmployee =
+    activeEmployees.find((employee) => (employee.employeeCode || "").toUpperCase() === "SD078") ||
+    activeEmployees[0];
+
+  scannerInput.value = getEmployeeOptionValue(defaultEmployee);
 }
 
 function syncAreaInput() {
@@ -570,6 +599,7 @@ document.addEventListener("click", (event) => {
 async function initializeScanPage() {
   await loadJobs();
   renderMachineOptions();
+  renderScannerOptions();
   syncAreaInput();
   renderJobList();
   renderPartSelection("");
