@@ -6,9 +6,6 @@ const qrInput = document.getElementById("qrInput");
 const scannerInput = document.getElementById("scannerInput");
 const statusInput = document.getElementById("statusInput");
 const detailInput = document.getElementById("detailInput");
-const startVoiceButton = document.getElementById("startVoiceButton");
-const stopVoiceButton = document.getElementById("stopVoiceButton");
-const voiceStatus = document.getElementById("voiceStatus");
 const scanForm = document.getElementById("scanForm");
 const resetStorageButton = document.getElementById("resetStorageButton");
 const resultTitle = document.getElementById("resultTitle");
@@ -50,10 +47,6 @@ let barcodeDetector;
 let currentPartCandidates = [];
 let jobsState = cloneJobs(defaultJobs);
 let previewObjectUrl = "";
-let voiceRecorder;
-let voiceStream;
-let voiceChunks = [];
-let voiceMimeType = "";
 const defaultMachineAreas = {
   "MC 10": "Injection",
   "MC 12": "Injection",
@@ -457,168 +450,6 @@ function setCameraState(statusText, messageText) {
   cameraMessage.textContent = messageText;
 }
 
-function setVoiceStatus(message) {
-  voiceStatus.textContent = message;
-}
-
-function getSupabaseFunctionUrl(functionName) {
-  const baseUrl = window.monitorConfig?.supabase?.url?.trim().replace(/\/+$/, "");
-
-  if (!baseUrl) {
-    return "";
-  }
-
-  return `${baseUrl}/functions/v1/${functionName}`;
-}
-
-function getSupabaseFunctionHeaders() {
-  const anonKey = window.monitorConfig?.supabase?.anonKey?.trim();
-
-  if (!anonKey) {
-    return {};
-  }
-
-  return {
-    apikey: anonKey,
-    Authorization: `Bearer ${anonKey}`
-  };
-}
-
-function stopVoiceInput() {
-  if (voiceRecorder && voiceRecorder.state !== "inactive") {
-    voiceRecorder.stop();
-  }
-
-  if (voiceStream) {
-    voiceStream.getTracks().forEach((track) => track.stop());
-    voiceStream = null;
-  }
-}
-
-async function transcribeVoiceDetail(audioBlob) {
-  const functionUrl = getSupabaseFunctionUrl("transcribe-detail");
-
-  if (!functionUrl) {
-    setVoiceStatus("ยังไม่ได้ตั้งค่า Supabase สำหรับถอดเสียง กรุณาตั้งค่า backend ก่อน");
-    return;
-  }
-
-  const extensionMap = {
-    "audio/webm": "webm",
-    "audio/webm;codecs=opus": "webm",
-    "audio/mp4": "mp4",
-    "audio/mpeg": "mp3",
-    "audio/ogg": "ogg"
-  };
-  const extension = extensionMap[voiceMimeType] || "webm";
-  const formData = new FormData();
-  formData.append("file", new File([audioBlob], `detail-note.${extension}`, { type: voiceMimeType || audioBlob.type || "audio/webm" }));
-
-  setVoiceStatus("กำลังส่งเสียงไปถอดข้อความ...");
-
-  const response = await fetch(functionUrl, {
-    method: "POST",
-    headers: getSupabaseFunctionHeaders(),
-    body: formData
-  });
-
-  if (!response.ok) {
-    throw new Error(`Transcription request failed: ${response.status}`);
-  }
-
-  const payload = await response.json();
-  const transcript = typeof payload?.text === "string" ? payload.text.trim() : "";
-
-  if (!transcript) {
-    throw new Error("Transcription returned empty text");
-  }
-
-  detailInput.value = transcript;
-  setVoiceStatus("ถอดเสียงสำเร็จแล้ว สามารถแก้ไขข้อความต่อก่อนบันทึกได้");
-}
-
-function getPreferredVoiceMimeType() {
-  if (!("MediaRecorder" in window)) {
-    return "";
-  }
-
-  const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/ogg"
-  ];
-
-  for (const candidate of candidates) {
-    if (window.MediaRecorder.isTypeSupported(candidate)) {
-      return candidate;
-    }
-  }
-
-  return "";
-}
-
-async function startVoiceInput() {
-  if (!("MediaRecorder" in window) || !navigator.mediaDevices?.getUserMedia) {
-    setVoiceStatus("เบราว์เซอร์นี้ยังไม่รองรับการอัดเสียง กรุณาพิมพ์ Detail เอง");
-    return;
-  }
-
-  try {
-    stopVoiceInput();
-    voiceChunks = [];
-    voiceMimeType = getPreferredVoiceMimeType();
-    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    voiceRecorder = voiceMimeType
-      ? new MediaRecorder(voiceStream, { mimeType: voiceMimeType })
-      : new MediaRecorder(voiceStream);
-
-    voiceMimeType = voiceRecorder.mimeType || voiceMimeType || "audio/webm";
-
-    voiceRecorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        voiceChunks.push(event.data);
-      }
-    };
-
-    voiceRecorder.onstart = () => {
-      setVoiceStatus("กำลังอัดเสียง... พูดรายละเอียดสถานะเครื่องได้เลย แล้วกดหยุดอัดเสียง");
-    };
-
-    voiceRecorder.onerror = () => {
-      setVoiceStatus("อัดเสียงไม่สำเร็จ กรุณาอนุญาตไมค์หรือพิมพ์ Detail เอง");
-    };
-
-    voiceRecorder.onstop = async () => {
-      const audioBlob = new Blob(voiceChunks, { type: voiceMimeType || "audio/webm" });
-      voiceChunks = [];
-
-      if (voiceStream) {
-        voiceStream.getTracks().forEach((track) => track.stop());
-        voiceStream = null;
-      }
-
-      if (!audioBlob.size) {
-        setVoiceStatus("ยังไม่มีเสียงที่ใช้งานได้ กรุณาลองอัดใหม่");
-        voiceRecorder = null;
-        return;
-      }
-
-      try {
-        await transcribeVoiceDetail(audioBlob);
-      } catch (error) {
-        setVoiceStatus("ถอดเสียงไม่สำเร็จ กรุณาลองใหม่หรือพิมพ์ Detail เอง");
-      } finally {
-        voiceRecorder = null;
-      }
-    };
-
-    voiceRecorder.start();
-  } catch (error) {
-    setVoiceStatus("เปิดไมค์ไม่ได้ กรุณาอนุญาตการใช้ไมค์หรือพิมพ์ Detail เอง");
-  }
-}
-
 function resetPhotoPreview() {
   if (previewObjectUrl) {
     URL.revokeObjectURL(previewObjectUrl);
@@ -765,7 +596,6 @@ resetStorageButton.addEventListener("click", async () => {
   detailInput.value = "";
   renderPartSelection("");
   renderScanReadout("");
-  setVoiceStatus("พิมพ์ข้อความได้ตามปกติ หรือกดเริ่มอัดเสียงเพื่อพูดใส่ Detail บนมือถือ");
   focusQrInput();
 });
 
@@ -776,15 +606,6 @@ startCameraButton.addEventListener("click", async () => {
 stopCameraButton.addEventListener("click", () => {
   resetPhotoPreview();
   focusQrInput();
-});
-
-startVoiceButton.addEventListener("click", () => {
-  startVoiceInput();
-});
-
-stopVoiceButton.addEventListener("click", () => {
-  stopVoiceInput();
-  setVoiceStatus("หยุดอัดเสียงแล้ว ระบบจะเริ่มถอดข้อความให้");
 });
 
 photoInput.addEventListener("change", async () => {
@@ -828,5 +649,4 @@ initializeScanPage();
 
 window.addEventListener("beforeunload", () => {
   resetPhotoPreview();
-  stopVoiceInput();
 });
