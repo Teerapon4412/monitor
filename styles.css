@@ -38,38 +38,6 @@ body::before {
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent 85%);
 }
 
-body.monitor-horizontal .shell {
-  grid-template-columns: 1fr;
-}
-
-body.monitor-horizontal .sidebar,
-body.monitor-horizontal .topbar,
-body.monitor-horizontal .stats-grid,
-body.monitor-horizontal .ticker,
-body.monitor-horizontal .detail-panel {
-  display: none;
-}
-
-body.monitor-horizontal .main-grid {
-  grid-template-columns: 1fr;
-}
-
-body.monitor-horizontal .map-panel {
-  padding: 6px;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-body.monitor-horizontal .plant-map {
-  min-height: 620px;
-}
-
-body.monitor-horizontal .focus-strip {
-  margin-top: 18px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
 
 .shell {
   position: relative;
