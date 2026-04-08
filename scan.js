@@ -15,6 +15,8 @@ const stopCameraButton = document.getElementById("stopCameraButton");
 const cameraPreview = document.getElementById("cameraPreview");
 const cameraStatus = document.getElementById("cameraStatus");
 const cameraMessage = document.getElementById("cameraMessage");
+const partSelection = document.getElementById("partSelection");
+const partSelectionHint = document.getElementById("partSelectionHint");
 const scannedDirectValue = document.getElementById("scannedDirectValue");
 const scannedPartCode = document.getElementById("scannedPartCode");
 const scannedPartName = document.getElementById("scannedPartName");
@@ -39,6 +41,7 @@ let isSubmittingScan = false;
 let cameraStream;
 let scanLoopId;
 let barcodeDetector;
+let currentPartCandidates = [];
 const defaultMachineAreas = {
   "MC 10": "Injection",
   "MC 12": "Injection",
@@ -165,6 +168,121 @@ function getQrLookup(rawValue) {
   };
 }
 
+function buildCandidateKey(entityCode, entityName) {
+  return [entityCode || "", entityName || ""].join("::");
+}
+
+function buildPartCandidates(rawValue) {
+  const lookup = getQrLookup(rawValue);
+  const candidateMap = new Map();
+
+  function addCandidate(item, source, matchedQrValue = null) {
+    if (!item?.entityCode || !item?.entityName) {
+      return;
+    }
+
+    const key = buildCandidateKey(item.entityCode, item.entityName);
+
+    if (candidateMap.has(key)) {
+      return;
+    }
+
+    candidateMap.set(key, {
+      entityCode: item.entityCode,
+      entityName: item.entityName,
+      entityType: item.entityType || "PART",
+      source,
+      matchedQrValue
+    });
+  }
+
+  const candidateKeys = resolveLookupKeys(lookup.parsed);
+
+  candidateKeys.forEach((key) => {
+    const qrMatch = qrLookup.get(key);
+
+    if (!qrMatch) {
+      return;
+    }
+
+    addCandidate(
+      {
+        entityCode: qrMatch.entityCode || catalogLookup.get(qrMatch.entityCode)?.entityCode,
+        entityName: qrMatch.entityName || catalogLookup.get(qrMatch.entityCode)?.entityName,
+        entityType: qrMatch.entityType
+      },
+      "qr_codes",
+      key
+    );
+  });
+
+  if (lookup.catalogItem) {
+    addCandidate(lookup.catalogItem, "catalog", lookup.matchedQrValue);
+  }
+
+  if (lookup.parsed.partCode) {
+    const normalizedPartCode = lookup.parsed.partCode.toUpperCase();
+
+    catalogItems
+      .filter((item) => item.entityCode && item.entityCode.toUpperCase().startsWith(normalizedPartCode))
+      .slice(0, 20)
+      .forEach((item) => {
+        addCandidate(item, "catalog", normalizedPartCode);
+      });
+  }
+
+  return {
+    lookup,
+    candidates: Array.from(candidateMap.values())
+  };
+}
+
+function renderPartSelection(rawValue = "") {
+  const trimmedValue = rawValue.trim();
+
+  if (!trimmedValue) {
+    currentPartCandidates = [];
+    partSelection.innerHTML = `<option value="">รอสแกน QR ก่อน</option>`;
+    partSelection.value = "";
+    partSelectionHint.textContent = "เมื่อสแกน QR แล้ว ระบบจะเติมตัวเลือกจาก Master Data ให้อัตโนมัติ";
+    return getQrLookup("");
+  }
+
+  const { lookup, candidates } = buildPartCandidates(trimmedValue);
+  currentPartCandidates = candidates;
+
+  if (candidates.length === 0) {
+    partSelection.innerHTML = `<option value="">ไม่พบชื่อชิ้นงานใน Master Data</option>`;
+    partSelection.value = "";
+    partSelectionHint.textContent = "ไม่พบ candidate ที่เลือกได้จาก Master Data กรุณาตรวจสอบ QR หรือ Master Data";
+    return lookup;
+  }
+
+  partSelection.innerHTML = candidates
+    .map((candidate, index) => {
+      const suffix = candidate.source === "qr_codes" ? "ตรงจาก QR" : "จาก Catalog";
+      return `<option value="${index}">${candidate.entityCode} - ${candidate.entityName} (${suffix})</option>`;
+    })
+    .join("");
+
+  const preferredIndex = candidates.findIndex(
+    (candidate) => candidate.entityCode === lookup.entityCode && candidate.entityName === lookup.entityName
+  );
+  partSelection.value = String(preferredIndex >= 0 ? preferredIndex : 0);
+  partSelectionHint.textContent = `พบ ${candidates.length} ตัวเลือกจาก Master Data กรุณายืนยันชื่อชิ้นงานก่อนบันทึก`;
+  return lookup;
+}
+
+function getSelectedPartCandidate() {
+  const index = Number(partSelection.value);
+
+  if (!Number.isInteger(index) || index < 0 || index >= currentPartCandidates.length) {
+    return null;
+  }
+
+  return currentPartCandidates[index];
+}
+
 function getDefaultArea(machineId) {
   return defaultJobs[machineId]?.area || defaultMachineAreas[machineId] || "";
 }
@@ -211,7 +329,7 @@ function renderJobList() {
       </div>
       <div class="machine-values">
         <span>ชื่อชิ้นงาน</span>
-        <strong>${lookup.entityName || "-"}</strong>
+        <strong>${job?.partName || lookup.entityName || "-"}</strong>
       </div>
     `;
     jobList.appendChild(card);
@@ -223,12 +341,12 @@ function showResult(title, message) {
   resultMessage.textContent = message;
 }
 
-function renderScanReadout(rawValue = "") {
+function renderScanReadout(rawValue = "", selectedPart = null) {
   const lookup = getQrLookup(rawValue);
 
   scannedDirectValue.textContent = lookup.parsed.directValue || "--";
   scannedPartCode.textContent = lookup.parsed.partCode || "--";
-  scannedPartName.textContent = lookup.entityName || "--";
+  scannedPartName.textContent = selectedPart?.entityName || lookup.entityName || "--";
 }
 
 function focusQrInput(selectValue = false) {
@@ -285,7 +403,8 @@ async function scanFrame() {
 
       if (qrValue) {
         qrInput.value = qrValue;
-        renderScanReadout(qrValue);
+        const lookup = renderPartSelection(qrValue);
+        renderScanReadout(lookup.qrValue, getSelectedPartCandidate());
         setCameraState("พบ QR แล้ว", `อ่านค่า ${qrValue} แล้ว กำลังบันทึกให้อัตโนมัติ`);
         stopCamera();
         submitScan();
@@ -336,7 +455,8 @@ scanForm.addEventListener("submit", (event) => {
   const area = areaInput.value.trim();
   const lookup = getQrLookup(qrInput.value);
   const scannedBy = scannerInput.value.trim() || "station-01";
-  renderScanReadout(lookup.qrValue);
+  const selectedPart = getSelectedPartCandidate();
+  renderScanReadout(lookup.qrValue, selectedPart);
 
   if (!area) {
     showResult("ไม่สามารถบันทึกได้", "กรุณาระบุพื้นที่หรือกระบวนการของเครื่องก่อนบันทึก");
@@ -350,11 +470,19 @@ scanForm.addEventListener("submit", (event) => {
     return;
   }
 
+  if (!selectedPart) {
+    showResult("ไม่สามารถบันทึกได้", "กรุณาเลือกชื่อชิ้นงานจาก Master Data ก่อนบันทึก");
+    partSelection.focus();
+    return;
+  }
+
   const jobs = loadJobs();
   jobs[machineId] = {
     area,
     directValue: lookup.parsed.directValue,
-    partCode: lookup.entityCode || lookup.parsed.partCode,
+    partCode: selectedPart.entityCode || lookup.entityCode || lookup.parsed.partCode,
+    partName: selectedPart.entityName || lookup.entityName || null,
+    entityType: selectedPart.entityType || lookup.entityType || "PART",
     qrValue: lookup.qrValue,
     updatedAt: new Date().toISOString(),
     scannedBy
@@ -364,10 +492,10 @@ scanForm.addEventListener("submit", (event) => {
   renderJobList();
   showResult(
     `บันทึก ${machineId} เรียบร้อย`,
-    `${machineId} ในพื้นที่ ${area} กำลังผลิต ${lookup.entityCode} - ${lookup.entityName} จาก QR ${lookup.qrValue}`
+    `${machineId} ในพื้นที่ ${area} กำลังผลิต ${selectedPart.entityCode} - ${selectedPart.entityName} จาก QR ${lookup.qrValue}`
   );
   qrInput.value = lookup.qrValue;
-  renderScanReadout(lookup.qrValue);
+  renderScanReadout(lookup.qrValue, selectedPart);
   focusQrInput(true);
 });
 
@@ -386,7 +514,13 @@ qrInput.addEventListener("keydown", (event) => {
 });
 
 qrInput.addEventListener("input", () => {
-  renderScanReadout(qrInput.value);
+  const lookup = renderPartSelection(qrInput.value);
+  renderScanReadout(lookup.qrValue, getSelectedPartCandidate());
+});
+
+partSelection.addEventListener("change", () => {
+  renderScanReadout(qrInput.value, getSelectedPartCandidate());
+  focusQrInput();
 });
 
 resetStorageButton.addEventListener("click", () => {
@@ -394,6 +528,7 @@ resetStorageButton.addEventListener("click", () => {
   renderJobList();
   showResult("รีเซ็ตข้อมูลแล้ว", "สถานะเครื่องจักรถูกคืนกลับเป็นค่าเริ่มต้นจากไฟล์ตั้งต้น");
   qrInput.value = "";
+  renderPartSelection("");
   renderScanReadout("");
   focusQrInput();
 });
@@ -427,6 +562,7 @@ document.addEventListener("click", (event) => {
 renderMachineOptions();
 syncAreaInput();
 renderJobList();
+renderPartSelection("");
 renderScanReadout("");
 focusQrInput();
 

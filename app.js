@@ -138,7 +138,16 @@ function getMachine(machineId) {
 }
 
 function getCurrentPart(machine) {
+  const machineJob = machine ? getMachineJob(machine.id) : null;
   const partCode = machine ? getMachinePartCode(machine) : null;
+
+  if (machineJob?.partCode && machineJob?.partName) {
+    return {
+      entityCode: machineJob.partCode,
+      entityName: machineJob.partName,
+      entityType: machineJob.entityType || "PART"
+    };
+  }
 
   if (!partCode) {
     return null;
