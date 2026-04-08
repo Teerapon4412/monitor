@@ -20,6 +20,7 @@ const partSelectionHint = document.getElementById("partSelectionHint");
 const scannedDirectValue = document.getElementById("scannedDirectValue");
 const scannedPartCode = document.getElementById("scannedPartCode");
 const scannedPartName = document.getElementById("scannedPartName");
+const dataService = window.monitorDataService;
 
 const masterQrCodes = Array.isArray(window.masterData?.qrCodes) ? window.masterData.qrCodes : [];
 const masterCatalog = Array.isArray(window.masterData?.catalog) ? window.masterData.catalog : [];
@@ -42,6 +43,7 @@ let cameraStream;
 let scanLoopId;
 let barcodeDetector;
 let currentPartCandidates = [];
+let jobsState = cloneJobs(defaultJobs);
 const defaultMachineAreas = {
   "MC 10": "Injection",
   "MC 12": "Injection",
@@ -58,22 +60,14 @@ function cloneJobs(jobs) {
   return JSON.parse(JSON.stringify(jobs));
 }
 
-function loadJobs() {
-  const savedValue = window.localStorage.getItem(MACHINE_JOBS_STORAGE_KEY);
-
-  if (!savedValue) {
-    return cloneJobs(defaultJobs);
-  }
-
-  try {
-    return { ...cloneJobs(defaultJobs), ...JSON.parse(savedValue) };
-  } catch (error) {
-    return cloneJobs(defaultJobs);
-  }
+async function loadJobs() {
+  jobsState = await dataService.loadJobs(defaultJobs);
+  return jobsState;
 }
 
-function saveJobs(jobs) {
-  window.localStorage.setItem(MACHINE_JOBS_STORAGE_KEY, JSON.stringify(jobs));
+async function saveJobs(jobs) {
+  jobsState = await dataService.saveAllJobs(jobs);
+  return jobsState;
 }
 
 function formatDateTime(isoString) {
@@ -312,12 +306,11 @@ function syncAreaInput() {
 }
 
 function renderJobList() {
-  const jobs = loadJobs();
   jobCountBadge.textContent = `${machineIds.length} เครื่อง`;
   jobList.innerHTML = "";
 
   machineIds.forEach((machineId) => {
-    const job = jobs[machineId];
+    const job = jobsState[machineId];
     const lookup = getQrLookup(job?.directValue || job?.partCode || job?.qrValue || "");
     const card = document.createElement("article");
     card.className = "machine-card";
@@ -462,7 +455,7 @@ async function startCamera() {
   }
 }
 
-scanForm.addEventListener("submit", (event) => {
+scanForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const machineId = machineSelect.value;
@@ -490,7 +483,7 @@ scanForm.addEventListener("submit", (event) => {
     return;
   }
 
-  const jobs = loadJobs();
+  const jobs = await loadJobs();
   jobs[machineId] = {
     area,
     directValue: lookup.parsed.directValue,
@@ -502,7 +495,7 @@ scanForm.addEventListener("submit", (event) => {
     scannedBy
   };
 
-  saveJobs(jobs);
+  await saveJobs(jobs);
   renderJobList();
   showResult(
     `บันทึก ${machineId} เรียบร้อย`,
@@ -537,8 +530,8 @@ partSelection.addEventListener("change", () => {
   focusQrInput();
 });
 
-resetStorageButton.addEventListener("click", () => {
-  window.localStorage.removeItem(MACHINE_JOBS_STORAGE_KEY);
+resetStorageButton.addEventListener("click", async () => {
+  jobsState = await dataService.resetJobs(defaultJobs);
   renderJobList();
   showResult("รีเซ็ตข้อมูลแล้ว", "สถานะเครื่องจักรถูกคืนกลับเป็นค่าเริ่มต้นจากไฟล์ตั้งต้น");
   qrInput.value = "";
@@ -573,12 +566,17 @@ document.addEventListener("click", (event) => {
   focusQrInput();
 });
 
-renderMachineOptions();
-syncAreaInput();
-renderJobList();
-renderPartSelection("");
-renderScanReadout("");
-focusQrInput();
+async function initializeScanPage() {
+  await loadJobs();
+  renderMachineOptions();
+  syncAreaInput();
+  renderJobList();
+  renderPartSelection("");
+  renderScanReadout("");
+  focusQrInput();
+}
+
+initializeScanPage();
 
 window.addEventListener("beforeunload", () => {
   stopCamera();

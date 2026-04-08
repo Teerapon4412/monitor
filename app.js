@@ -64,6 +64,7 @@ const inspectorPartCode = document.getElementById("inspectorPartCode");
 const inspectorPartName = document.getElementById("inspectorPartName");
 const inspectorQrValue = document.getElementById("inspectorQrValue");
 const inspectorService = document.getElementById("inspectorService");
+const dataService = window.monitorDataService;
 
 let selectedMachineId = "MC 10";
 let refreshTimerId;
@@ -83,6 +84,7 @@ const catalogLookup = new Map(
   ).map((item) => [item.entityCode, item])
 );
 const defaultMachineJobs = window.currentMachineJobsData?.jobs || {};
+let machineJobsState = { ...defaultMachineJobs };
 
 function normalizeArea(areaValue, fallbackArea) {
   if (areaValue === "Injection" || areaValue === "Assembly") {
@@ -100,22 +102,13 @@ function normalizeArea(areaValue, fallbackArea) {
   return fallbackArea;
 }
 
-function loadMachineJobs() {
-  const savedValue = window.localStorage.getItem(MACHINE_JOBS_STORAGE_KEY);
-
-  if (!savedValue) {
-    return defaultMachineJobs;
-  }
-
-  try {
-    return { ...defaultMachineJobs, ...JSON.parse(savedValue) };
-  } catch (error) {
-    return defaultMachineJobs;
-  }
+async function loadMachineJobs() {
+  machineJobsState = await dataService.loadJobs(defaultMachineJobs);
+  return machineJobsState;
 }
 
 function getMachineJob(machineId) {
-  return loadMachineJobs()[machineId] || null;
+  return machineJobsState[machineId] || null;
 }
 
 function getMachineQrValue(machine) {
@@ -390,17 +383,22 @@ function setTimestamp() {
   });
 }
 
-function refreshDashboard() {
+async function refreshDashboard() {
+  await loadMachineJobs();
   renderMachines();
   renderSummary();
   setSelectedMachine(selectedMachineId);
   setTimestamp();
 }
 
-renderAlerts();
-renderTicker();
-refreshDashboard();
+async function initializeDashboard() {
+  renderAlerts();
+  renderTicker();
+  await refreshDashboard();
 
-refreshTimerId = window.setInterval(() => {
-  refreshDashboard();
-}, 30000);
+  refreshTimerId = window.setInterval(() => {
+    refreshDashboard();
+  }, 5000);
+}
+
+initializeDashboard();
