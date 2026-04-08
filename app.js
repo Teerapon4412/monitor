@@ -11,9 +11,9 @@ const machines = [
 ];
 
 const alerts = [
-  { machine: "MC 07", detail: "แรงดันไฮดรอลิกหาย ต้องให้ช่างเข้าตรวจสอบ", level: "critical" },
-  { machine: "MC 13", detail: "อุณหภูมิสปินเดิลสูงต่อเนื่องมา 7 นาที", level: "warning" },
-  { machine: "MC 19", detail: "อัตราการสแกนตรวจซ้ำเกินค่าที่กำหนด", level: "warning" }
+  { machine: "MC 07", detail: "แรงดันไฮดรอลิกหาย ต้องให้ช่างเข้าตรวจสอบ", level: "critical", minutesAgo: 4 },
+  { machine: "MC 13", detail: "อุณหภูมิสปินเดิลสูงต่อเนื่องมา 7 นาที", level: "warning", minutesAgo: 7 },
+  { machine: "MC 19", detail: "อัตราการสแกนตรวจซ้ำเกินค่าที่กำหนด", level: "warning", minutesAgo: 11 }
 ];
 
 const statusLabel = {
@@ -40,6 +40,7 @@ const MACHINE_JOBS_STORAGE_KEY = "monitor.currentMachineJobs";
 const machineList = document.getElementById("machineList");
 const plantMap = document.getElementById("plantMap");
 const alertList = document.getElementById("alertList");
+const alertSummaryBadge = document.getElementById("alertSummaryBadge");
 const lastUpdated = document.getElementById("lastUpdated");
 const tickerTrack = document.getElementById("tickerTrack");
 const focusStrip = document.getElementById("focusStrip");
@@ -197,6 +198,43 @@ function formatLastScan(isoString) {
   return date.toLocaleString("th-TH", {
     dateStyle: "short",
     timeStyle: "short"
+  });
+}
+
+function getAlertTimestampLabel(alert) {
+  if (alert.occurredAt) {
+    return formatLastScan(alert.occurredAt);
+  }
+
+  if (typeof alert.minutesAgo === "number") {
+    if (alert.minutesAgo < 60) {
+      return `${alert.minutesAgo} นาทีที่แล้ว`;
+    }
+
+    const hours = Math.floor(alert.minutesAgo / 60);
+    const minutes = alert.minutesAgo % 60;
+    return minutes > 0 ? `${hours} ชม. ${minutes} นาทีที่แล้ว` : `${hours} ชม.ที่แล้ว`;
+  }
+
+  return "เพิ่งแจ้งเตือน";
+}
+
+function getSortedAlerts() {
+  const priority = {
+    critical: 0,
+    warning: 1
+  };
+
+  return [...alerts].sort((left, right) => {
+    const levelDiff = (priority[left.level] ?? 99) - (priority[right.level] ?? 99);
+
+    if (levelDiff !== 0) {
+      return levelDiff;
+    }
+
+    const leftMinutes = typeof left.minutesAgo === "number" ? left.minutesAgo : Number.MAX_SAFE_INTEGER;
+    const rightMinutes = typeof right.minutesAgo === "number" ? right.minutesAgo : Number.MAX_SAFE_INTEGER;
+    return leftMinutes - rightMinutes;
   });
 }
 
@@ -378,15 +416,44 @@ function renderMachines() {
 }
 
 function renderAlerts() {
-  alerts.forEach((alert) => {
-    const item = document.createElement("article");
-    item.className = "alert-card";
+  const sortedAlerts = getSortedAlerts();
+  const criticalCount = sortedAlerts.filter((alert) => alert.level === "critical").length;
+  const warningCount = sortedAlerts.filter((alert) => alert.level === "warning").length;
+
+  alertList.innerHTML = "";
+
+  if (alertSummaryBadge) {
+    if (criticalCount > 0) {
+      alertSummaryBadge.className = "badge warning";
+      alertSummaryBadge.textContent = `วิกฤต ${criticalCount} | เตือน ${warningCount}`;
+    } else if (warningCount > 0) {
+      alertSummaryBadge.className = "badge warning";
+      alertSummaryBadge.textContent = `เตือน ${warningCount}`;
+    } else {
+      alertSummaryBadge.textContent = "ไม่มีแจ้งเตือน";
+      alertSummaryBadge.className = "badge neutral";
+    }
+  }
+
+  sortedAlerts.forEach((alert) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = `alert-card alert-${alert.level}`;
+    item.setAttribute("aria-label", `ดูรายละเอียด ${alert.machine}`);
+    item.addEventListener("click", () => {
+      setSelectedMachine(alert.machine);
+    });
+
+    const severityBadgeClass = alert.level === "critical" ? "status-down" : "status-warning";
     item.innerHTML = `
-      <div class="alert-copy">
-        <strong>${alert.machine}</strong>
-        <span class="badge ${alert.level === "critical" ? "status-down" : "status-warning"}">${alertLevelLabel[alert.level] || alert.level}</span>
+      <div class="alert-header">
+        <div class="alert-copy">
+          <strong>${alert.machine}</strong>
+          <span class="badge ${severityBadgeClass}">${alertLevelLabel[alert.level] || alert.level}</span>
+        </div>
+        <span class="alert-time">${getAlertTimestampLabel(alert)}</span>
       </div>
-      <p>${alert.detail}</p>
+      <p class="alert-detail">${alert.detail}</p>
     `;
     alertList.appendChild(item);
   });

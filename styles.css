@@ -201,6 +201,7 @@ h2 {
   gap: 12px;
 }
 
+.alert-header,
 .alert-copy,
 .machine-card header,
 .machine-values,
@@ -209,6 +210,54 @@ h2 {
   align-items: start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.alert-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.alert-card {
+  width: 100%;
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.alert-card:hover,
+.alert-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.alert-card:focus-visible {
+  outline: 2px solid rgba(92, 225, 230, 0.45);
+  outline-offset: 2px;
+}
+
+.alert-critical {
+  border-left: 4px solid rgba(255, 107, 107, 0.95);
+  background: linear-gradient(180deg, rgba(58, 22, 32, 0.9), rgba(22, 31, 48, 0.96));
+}
+
+.alert-warning {
+  border-left: 4px solid rgba(255, 184, 77, 0.95);
+  background: linear-gradient(180deg, rgba(59, 44, 18, 0.88), rgba(20, 30, 47, 0.96));
+}
+
+.alert-time {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.alert-detail {
+  margin-top: 10px;
+  line-height: 1.45;
 }
 
 .topbar {
