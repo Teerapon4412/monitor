@@ -130,6 +130,10 @@ function getMachineStatus(machine) {
   return getMachineJob(machine.id)?.status || machine.status;
 }
 
+function getMachineOperator(machine) {
+  return getMachineJob(machine.id)?.scannedBy || machine.operator;
+}
+
 function getMachine(machineId) {
   return machines.find((machine) => machine.id === machineId);
 }
@@ -233,7 +237,7 @@ function setSelectedMachine(machineId) {
     inspectorSummary.textContent = machineJob.detail;
   }
   inspectorArea.textContent = getMachineArea(machine);
-  inspectorOperator.textContent = machine.operator;
+  inspectorOperator.textContent = getMachineOperator(machine);
   inspectorCycle.textContent = `${machine.cycle} วินาที`;
   inspectorOee.textContent = `${machine.oee}%`;
   inspectorOutput.textContent = `${machine.output.toLocaleString()} ชิ้น`;
