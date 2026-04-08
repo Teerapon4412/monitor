@@ -19,9 +19,20 @@ const scannedDirectValue = document.getElementById("scannedDirectValue");
 const scannedPartCode = document.getElementById("scannedPartCode");
 const scannedPartName = document.getElementById("scannedPartName");
 
-const qrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
-const qrLookup = new Map(qrMappings.map((mapping) => [mapping.qrValue, mapping]));
-const catalogLookup = new Map(qrMappings.map((mapping) => [mapping.entityCode, mapping]));
+const masterQrCodes = Array.isArray(window.masterData?.qrCodes) ? window.masterData.qrCodes : [];
+const masterCatalog = Array.isArray(window.masterData?.catalog) ? window.masterData.catalog : [];
+const fallbackQrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
+const qrCodes = masterQrCodes.length > 0 ? masterQrCodes : fallbackQrMappings;
+const catalogItems = masterCatalog.length > 0
+  ? masterCatalog
+  : fallbackQrMappings.map((mapping) => ({
+      id: mapping.entityId,
+      entityType: mapping.entityType,
+      entityCode: mapping.entityCode,
+      entityName: mapping.entityName
+    }));
+const qrLookup = new Map(qrCodes.map((mapping) => [mapping.qrValue, mapping]));
+const catalogLookup = new Map(catalogItems.map((item) => [item.entityCode, item]));
 const defaultJobs = window.currentMachineJobsData?.jobs || {};
 const machineIds = Object.keys(defaultJobs);
 let isSubmittingScan = false;
@@ -119,8 +130,8 @@ function getQrLookup(rawValue) {
         qrValue: parsed.directValue,
         matchedQrValue: key,
         entityType: qrMatch.entityType,
-        entityCode: qrMatch.entityCode,
-        entityName: qrMatch.entityName,
+        entityCode: qrMatch.entityCode || (catalogLookup.get(qrMatch.entityCode)?.entityCode),
+        entityName: qrMatch.entityName || (catalogLookup.get(qrMatch.entityCode)?.entityName),
         catalogItem: catalogLookup.get(qrMatch.entityCode) || null,
         parsed
       };

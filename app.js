@@ -67,8 +67,21 @@ const inspectorService = document.getElementById("inspectorService");
 
 let selectedMachineId = "MC 10";
 let refreshTimerId;
-const qrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
+const masterQrCodes = Array.isArray(window.masterData?.qrCodes) ? window.masterData.qrCodes : [];
+const masterCatalog = Array.isArray(window.masterData?.catalog) ? window.masterData.catalog : [];
+const fallbackQrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
+const qrMappings = masterQrCodes.length > 0 ? masterQrCodes : fallbackQrMappings;
 const qrLookup = new Map(qrMappings.map((mapping) => [mapping.qrValue, mapping]));
+const catalogLookup = new Map(
+  (masterCatalog.length > 0
+    ? masterCatalog
+    : fallbackQrMappings.map((mapping) => ({
+        entityCode: mapping.entityCode,
+        entityName: mapping.entityName,
+        entityType: mapping.entityType
+      }))
+  ).map((item) => [item.entityCode, item])
+);
 const defaultMachineJobs = window.currentMachineJobsData?.jobs || {};
 
 function normalizeArea(areaValue, fallbackArea) {
@@ -131,7 +144,7 @@ function getCurrentPart(machine) {
     return null;
   }
 
-  return qrLookup.get(partCode) || null;
+  return qrLookup.get(partCode) || catalogLookup.get(partCode) || null;
 }
 
 function getFallbackMachine() {
