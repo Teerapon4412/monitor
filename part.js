@@ -1,6 +1,10 @@
 const partList = document.getElementById("partList");
 const partQrInput = document.getElementById("partQrInput");
 const partQrStatus = document.getElementById("partQrStatus");
+const partPhotoInput = document.getElementById("partPhotoInput");
+const partPhotoButton = document.getElementById("partPhotoButton");
+const partClearPhotoButton = document.getElementById("partClearPhotoButton");
+const partPhotoPreview = document.getElementById("partPhotoPreview");
 const partSearchInput = document.getElementById("partSearchInput");
 const partFilterInput = document.getElementById("partFilterInput");
 const partTotal = document.getElementById("partTotal");
@@ -20,6 +24,8 @@ const catalogLookup = new Map(catalogItems.map((item) => [item.entityCode, item]
 
 let partSettings = {};
 let qrScanTimerId;
+let barcodeDetector;
+let previewObjectUrl = "";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -119,6 +125,64 @@ function handlePartQrScan(rawValue) {
   }
 
   jumpToPart(parsed.partCode);
+}
+
+function resetPhotoPreview() {
+  if (previewObjectUrl) {
+    URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = "";
+  }
+
+  partPhotoPreview.removeAttribute("src");
+  partPhotoInput.value = "";
+  partQrStatus.textContent = "สแกน QR แล้วระบบจะเลื่อนไปยัง Part นั้นเพื่อแก้ไข Cycle Time";
+  partQrStatus.classList.remove("warning-text");
+}
+
+async function scanPhotoFile(file) {
+  if (!file) {
+    return;
+  }
+
+  if (!("BarcodeDetector" in window)) {
+    partQrStatus.textContent = "เบราว์เซอร์นี้ยังไม่รองรับการอ่าน QR จากรูป กรุณายิง Scanner หรือพิมพ์ค่า QR";
+    partQrStatus.classList.add("warning-text");
+    return;
+  }
+
+  try {
+    resetPhotoPreview();
+    previewObjectUrl = URL.createObjectURL(file);
+    partPhotoPreview.src = previewObjectUrl;
+    partQrStatus.textContent = "กำลังอ่าน QR จากรูป";
+    partQrStatus.classList.remove("warning-text");
+
+    barcodeDetector = barcodeDetector || new window.BarcodeDetector({ formats: ["qr_code"] });
+
+    const imageBitmap = await createImageBitmap(file);
+    const barcodes = await barcodeDetector.detect(imageBitmap);
+    imageBitmap.close();
+
+    if (!barcodes.length) {
+      partQrStatus.textContent = "ไม่พบ QR ในรูปนี้ ลองถ่ายให้ชัดขึ้นหรือขยับกล้องเข้าใกล้ Part Tag";
+      partQrStatus.classList.add("warning-text");
+      return;
+    }
+
+    const qrValue = barcodes[0].rawValue?.trim();
+
+    if (!qrValue) {
+      partQrStatus.textContent = "พบ QR ในรูป แต่ยังอ่านค่าไม่ได้ กรุณาลองถ่ายใหม่";
+      partQrStatus.classList.add("warning-text");
+      return;
+    }
+
+    partQrInput.value = qrValue;
+    handlePartQrScan(qrValue);
+  } catch (error) {
+    partQrStatus.textContent = "อ่านรูป QR ไม่สำเร็จ กรุณาลองถ่ายใหม่หรือยิง Scanner แทน";
+    partQrStatus.classList.add("warning-text");
+  }
 }
 
 function getFilteredParts() {
@@ -282,6 +346,20 @@ partQrInput.addEventListener("input", () => {
   }, 500);
 });
 
+partPhotoButton.addEventListener("click", () => {
+  partPhotoInput.click();
+});
+
+partClearPhotoButton.addEventListener("click", () => {
+  resetPhotoPreview();
+  partQrInput.focus();
+});
+
+partPhotoInput.addEventListener("change", async () => {
+  const [file] = partPhotoInput.files || [];
+  await scanPhotoFile(file);
+});
+
 async function initializePartPage() {
   partSettings = await dataService.loadPartSettings();
   renderSummary();
@@ -290,3 +368,9 @@ async function initializePartPage() {
 }
 
 initializePartPage();
+
+window.addEventListener("beforeunload", () => {
+  if (previewObjectUrl) {
+    URL.revokeObjectURL(previewObjectUrl);
+  }
+});

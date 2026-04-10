@@ -53,13 +53,19 @@
 
           <label class="field part-scan-field">
             <span>สแกน QR เพื่อค้นหา Part</span>
-            <input
-              id="partQrInput"
-              type="text"
-              autocomplete="off"
-              inputmode="none"
-              placeholder="ยิง Scanner หรือวางค่า QR จาก Part Tag"
-            />
+            <div class="scan-inline-actions part-qr-actions">
+              <input
+                id="partQrInput"
+                type="text"
+                autocomplete="off"
+                inputmode="none"
+                placeholder="ยิง Scanner หรือวางค่า QR จาก Part Tag"
+              />
+              <input id="partPhotoInput" type="file" accept="image/*" capture="environment" hidden />
+              <button type="button" class="action-button primary compact-button" id="partPhotoButton">ถ่ายรูป QR</button>
+              <button type="button" class="action-button compact-button" id="partClearPhotoButton">ล้างรูป</button>
+            </div>
+            <img id="partPhotoPreview" class="camera-preview part-photo-preview" alt="ตัวอย่างรูป QR ที่เลือก" />
             <small class="field-hint" id="partQrStatus">สแกน QR แล้วระบบจะเลื่อนไปยัง Part นั้นเพื่อแก้ไข Cycle Time</small>
           </label>
 

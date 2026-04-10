@@ -821,6 +821,14 @@ h2 {
   background: linear-gradient(135deg, rgba(92, 225, 230, 0.1), rgba(255, 255, 255, 0.035));
 }
 
+.part-photo-preview:not([src]) {
+  display: none;
+}
+
+.part-photo-preview {
+  margin: 8px 0 0;
+}
+
 .part-toolbar {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 220px;
@@ -972,6 +980,7 @@ h2 {
   }
 
   .scan-inline-actions,
+  .part-qr-actions,
   .scan-time-actions,
   .history-toolbar,
   .scan-readout,
