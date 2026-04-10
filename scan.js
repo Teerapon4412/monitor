@@ -72,6 +72,102 @@ const defaultMachineStatuses = {
   "MC 18": "running"
 };
 
+const thaiKeyboardToEnglish = {
+  "ๅ": "1",
+  "/": "2",
+  "-": "3",
+  "ภ": "4",
+  "ถ": "5",
+  "ุ": "6",
+  "ึ": "7",
+  "ค": "8",
+  "ต": "9",
+  "จ": "0",
+  "ข": "-",
+  "ช": "=",
+  "ๆ": "q",
+  "ไ": "w",
+  "ำ": "e",
+  "พ": "r",
+  "ะ": "t",
+  "ั": "y",
+  "ี": "u",
+  "ร": "i",
+  "น": "o",
+  "ย": "p",
+  "บ": "[",
+  "ล": "]",
+  "ฃ": "\\",
+  "ฟ": "a",
+  "ห": "s",
+  "ก": "d",
+  "ด": "f",
+  "เ": "g",
+  "้": "h",
+  "่": "j",
+  "า": "k",
+  "ส": "l",
+  "ว": ";",
+  "ง": "'",
+  "ผ": "z",
+  "ป": "x",
+  "แ": "c",
+  "อ": "v",
+  "ิ": "b",
+  "ื": "n",
+  "ท": "m",
+  "ม": ",",
+  "ใ": ".",
+  "ฝ": "/",
+  "%": "~",
+  "+": "!",
+  "๑": "@",
+  "๒": "#",
+  "๓": "$",
+  "๔": "%",
+  "ู": "^",
+  "฿": "&",
+  "๕": "*",
+  "๖": "(",
+  "๗": ")",
+  "๘": "_",
+  "๙": "+",
+  "๐": "Q",
+  "\"": "W",
+  "ฎ": "E",
+  "ฑ": "R",
+  "ธ": "T",
+  "ํ": "Y",
+  "๊": "U",
+  "ณ": "I",
+  "ฯ": "O",
+  "ญ": "P",
+  "ฐ": "{",
+  ",": "}",
+  "ฅ": "|",
+  "ฤ": "A",
+  "ฆ": "S",
+  "ฏ": "D",
+  "โ": "F",
+  "ฌ": "G",
+  "็": "H",
+  "๋": "J",
+  "ษ": "K",
+  "ศ": "L",
+  "ซ": ":",
+  ".": "\"",
+  "(": "Z",
+  ")": "X",
+  "ฉ": "C",
+  "ฮ": "V",
+  "ฺ": "B",
+  "์": "N",
+  "?": "M",
+  "ฒ": "<",
+  "ฬ": ">",
+  "ฦ": "?"
+};
+
 function cloneJobs(jobs) {
   return JSON.parse(JSON.stringify(jobs));
 }
@@ -103,8 +199,22 @@ function formatDateTime(isoString) {
   });
 }
 
+function normalizeScannerText(rawValue) {
+  const value = rawValue.trim();
+
+  if (!/[ก-๙]/.test(value)) {
+    return value;
+  }
+
+  const convertedValue = Array.from(value)
+    .map((character) => thaiKeyboardToEnglish[character] || character)
+    .join("");
+
+  return convertedValue.trim();
+}
+
 function parseScannedQr(rawValue) {
-  const directValue = rawValue.trim();
+  const directValue = normalizeScannerText(rawValue);
   const compactValue = directValue.replace(/\s+/g, "");
   const partCodeMatch = compactValue.match(/^[A-Z]{1,4}\d{6,}/i) || directValue.match(/[A-Z]{1,4}\d{6,}/i);
   const partCode = partCodeMatch ? partCodeMatch[0].toUpperCase() : null;
@@ -452,11 +562,17 @@ function setScannerReadyState(statusText = "พร้อมรับ Scanner", m
 }
 
 function updateQrPreview(rawValue, sourceLabel = "Scanner") {
-  const lookup = renderPartSelection(rawValue);
+  const normalizedValue = normalizeScannerText(rawValue);
+
+  if (rawValue !== normalizedValue && qrInput.value === rawValue) {
+    qrInput.value = normalizedValue;
+  }
+
+  const lookup = renderPartSelection(normalizedValue);
   renderScanReadout(lookup.qrValue, getSelectedPartCandidate());
 
-  if (rawValue.trim()) {
-    const partCode = lookup.parsed.partCode || rawValue.trim();
+  if (normalizedValue.trim()) {
+    const partCode = lookup.parsed.partCode || normalizedValue.trim();
     setCameraState(
       `รับข้อมูลจาก ${sourceLabel}`,
       `อ่านค่า ${partCode} แล้ว ${lookup.found ? "พบข้อมูลใน Master Data" : "ยังไม่พบใน Master Data"}`
