@@ -26,6 +26,7 @@ const scannedDirectValue = document.getElementById("scannedDirectValue");
 const scannedPartCode = document.getElementById("scannedPartCode");
 const scannedPartName = document.getElementById("scannedPartName");
 const dataService = window.monitorDataService;
+const FIXED_DISPLAY_AREA = "Injection F1";
 
 const masterQrCodes = Array.isArray(window.masterData?.qrCodes) ? window.masterData.qrCodes : [];
 const masterCatalog = Array.isArray(window.masterData?.catalog) ? window.masterData.catalog : [];
@@ -445,7 +446,7 @@ function getSelectedPartCandidate() {
 }
 
 function getDefaultArea(machineId) {
-  return defaultJobs[machineId]?.area || defaultMachineAreas[machineId] || "";
+  return FIXED_DISPLAY_AREA;
 }
 
 function getDefaultStatus(machineId) {
@@ -491,7 +492,7 @@ function renderScannerOptions() {
 }
 
 function syncAreaInput() {
-  areaInput.value = getDefaultArea(machineSelect.value);
+  areaInput.value = FIXED_DISPLAY_AREA;
 }
 
 function syncStatusInput() {
@@ -697,7 +698,7 @@ scanForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const machineId = machineSelect.value;
-  const area = areaInput.value.trim();
+  const area = FIXED_DISPLAY_AREA;
   const status = statusInput.value;
   const detail = detailInput.value.trim();
   const statusTimeIso = getStatusTimeIso();

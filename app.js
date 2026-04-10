@@ -89,7 +89,7 @@ let machineJobsState = { ...defaultMachineJobs };
 let machineHistoryState = {};
 
 function normalizeArea(areaValue, fallbackArea) {
-  if (areaValue === "Injection" || areaValue === "Assembly") {
+  if (areaValue === "Injection F1" || areaValue === "Injection" || areaValue === "Assembly") {
     return areaValue;
   }
 
