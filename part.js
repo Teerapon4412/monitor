@@ -115,7 +115,7 @@ function renderPartList() {
         <span>อัปเดตล่าสุด: ${escapeHtml(formatDateTime(setting.updatedAt))}</span>
       </div>
       <label class="part-inline-field">
-        <span>เวลาฉีด</span>
+        <span>Cycle Time</span>
         <input
           class="part-time-input"
           type="number"

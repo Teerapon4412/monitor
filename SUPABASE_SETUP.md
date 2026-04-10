@@ -9,7 +9,7 @@
 When `config.js` has a valid Supabase URL and anon key:
 - `scan.html` writes machine jobs to Supabase
 - `scan.html` also writes status update history to Supabase
-- `part.html` reads and writes injection time settings to Supabase
+- `part.html` reads and writes Cycle Time settings to Supabase
 - `index.html` reads the same machine jobs from Supabase
 - `index.html` reads machine status history from Supabase
 - monitor refreshes from cloud every 5 seconds
