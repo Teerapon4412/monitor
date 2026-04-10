@@ -1,4 +1,6 @@
 const partList = document.getElementById("partList");
+const partQrInput = document.getElementById("partQrInput");
+const partQrStatus = document.getElementById("partQrStatus");
 const partSearchInput = document.getElementById("partSearchInput");
 const partFilterInput = document.getElementById("partFilterInput");
 const partTotal = document.getElementById("partTotal");
@@ -12,8 +14,12 @@ const dataService = window.monitorDataService;
 const catalogItems = Array.isArray(window.masterData?.catalog)
   ? window.masterData.catalog.filter((item) => item.entityType === "PART" && item.entityCode)
   : [];
+const qrCodes = Array.isArray(window.masterData?.qrCodes) ? window.masterData.qrCodes : [];
+const qrLookup = new Map(qrCodes.map((mapping) => [mapping.qrValue, mapping]));
+const catalogLookup = new Map(catalogItems.map((item) => [item.entityCode, item]));
 
 let partSettings = {};
+let qrScanTimerId;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -49,6 +55,70 @@ function getPartSetting(partCode) {
     updatedAt: "",
     updatedBy: ""
   };
+}
+
+function parsePartCodeFromQr(rawValue) {
+  const directValue = rawValue.trim();
+  const compactValue = directValue.replace(/\s+/g, "");
+  const exactQrMatch = qrLookup.get(directValue) || qrLookup.get(compactValue);
+
+  if (exactQrMatch?.entityCode) {
+    return {
+      directValue,
+      partCode: exactQrMatch.entityCode,
+      source: "qr-mapping"
+    };
+  }
+
+  const partCodeMatch = compactValue.match(/[A-Z]{1,4}\d{6,}/i) || directValue.match(/[A-Z]{1,4}\d{6,}/i);
+  const partCode = partCodeMatch ? partCodeMatch[0].toUpperCase() : "";
+
+  return {
+    directValue,
+    partCode,
+    source: partCode ? "parsed" : "unknown"
+  };
+}
+
+function jumpToPart(partCode) {
+  const part = catalogLookup.get(partCode);
+
+  if (!part) {
+    partQrStatus.textContent = `ไม่พบ Part Code ${partCode || "-"} ใน Master Data`;
+    partQrStatus.classList.add("warning-text");
+    return;
+  }
+
+  partFilterInput.value = "all";
+  partSearchInput.value = partCode;
+  renderPartList();
+
+  window.requestAnimationFrame(() => {
+    const row = Array.from(partList.querySelectorAll(".part-row"))
+      .find((item) => item.dataset.partCode === partCode);
+    const timeInput = row?.querySelector(".part-time-input");
+
+    if (!row || !timeInput) {
+      return;
+    }
+
+    row.classList.add("part-row-target");
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    timeInput.focus();
+    timeInput.select();
+    partQrStatus.textContent = `พบ ${partCode} - ${part.entityName || ""} พร้อมแก้ไข Cycle Time`;
+    partQrStatus.classList.remove("warning-text");
+  });
+}
+
+function handlePartQrScan(rawValue) {
+  const parsed = parsePartCodeFromQr(rawValue);
+
+  if (!parsed.directValue) {
+    return;
+  }
+
+  jumpToPart(parsed.partCode);
 }
 
 function getFilteredParts() {
@@ -196,10 +266,27 @@ partList.addEventListener("keydown", async (event) => {
 partSearchInput.addEventListener("input", renderPartList);
 partFilterInput.addEventListener("change", renderPartList);
 
+partQrInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  event.preventDefault();
+  handlePartQrScan(partQrInput.value);
+});
+
+partQrInput.addEventListener("input", () => {
+  window.clearTimeout(qrScanTimerId);
+  qrScanTimerId = window.setTimeout(() => {
+    handlePartQrScan(partQrInput.value);
+  }, 500);
+});
+
 async function initializePartPage() {
   partSettings = await dataService.loadPartSettings();
   renderSummary();
   renderPartList();
+  partQrInput.focus();
 }
 
 initializePartPage();

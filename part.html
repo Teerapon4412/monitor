@@ -51,6 +51,18 @@
             <span class="badge neutral" id="partDataMode">กำลังโหลด</span>
           </div>
 
+          <label class="field part-scan-field">
+            <span>สแกน QR เพื่อค้นหา Part</span>
+            <input
+              id="partQrInput"
+              type="text"
+              autocomplete="off"
+              inputmode="none"
+              placeholder="ยิง Scanner หรือวางค่า QR จาก Part Tag"
+            />
+            <small class="field-hint" id="partQrStatus">สแกน QR แล้วระบบจะเลื่อนไปยัง Part นั้นเพื่อแก้ไข Cycle Time</small>
+          </label>
+
           <div class="part-toolbar">
             <label class="field">
               <span>ค้นหา Part Code / ชื่อชิ้นงาน</span>

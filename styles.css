@@ -813,6 +813,14 @@ h2 {
   padding: 22px;
 }
 
+.part-scan-field {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid rgba(92, 225, 230, 0.2);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(92, 225, 230, 0.1), rgba(255, 255, 255, 0.035));
+}
+
 .part-toolbar {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 220px;
@@ -849,6 +857,16 @@ h2 {
   border: 1px solid rgba(142, 179, 214, 0.16);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.035);
+}
+
+.part-row-target {
+  border-color: rgba(150, 245, 80, 0.75);
+  background: rgba(150, 245, 80, 0.1);
+  box-shadow: 0 0 0 3px rgba(150, 245, 80, 0.08);
+}
+
+.warning-text {
+  color: #ff9f9f;
 }
 
 .part-code-block,
