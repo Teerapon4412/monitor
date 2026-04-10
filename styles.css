@@ -515,6 +515,13 @@ h2 {
   align-items: center;
 }
 
+.scan-time-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
 .detail-actions {
   align-items: stretch;
 }
@@ -718,6 +725,7 @@ h2 {
   }
 
   .scan-inline-actions,
+  .scan-time-actions,
   .scan-readout {
     grid-template-columns: 1fr;
   }

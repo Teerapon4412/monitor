@@ -5,9 +5,11 @@ const areaInput = document.getElementById("areaInput");
 const qrInput = document.getElementById("qrInput");
 const scannerInput = document.getElementById("scannerInput");
 const statusInput = document.getElementById("statusInput");
+const statusTimeInput = document.getElementById("statusTimeInput");
 const detailInput = document.getElementById("detailInput");
 const scanForm = document.getElementById("scanForm");
 const resetStorageButton = document.getElementById("resetStorageButton");
+const useCurrentTimeButton = document.getElementById("useCurrentTimeButton");
 const resultTitle = document.getElementById("resultTitle");
 const resultMessage = document.getElementById("resultMessage");
 const jobList = document.getElementById("jobList");
@@ -197,6 +199,31 @@ function formatDateTime(isoString) {
     dateStyle: "short",
     timeStyle: "short"
   });
+}
+
+function toDateTimeLocalValue(dateValue = new Date()) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
+function getStatusTimeIso() {
+  if (!statusTimeInput.value) {
+    return new Date().toISOString();
+  }
+
+  const selectedDate = new Date(statusTimeInput.value);
+
+  if (Number.isNaN(selectedDate.getTime())) {
+    return null;
+  }
+
+  return selectedDate.toISOString();
 }
 
 function normalizeScannerText(rawValue) {
@@ -471,6 +498,11 @@ function syncStatusInput() {
   statusInput.value = jobsState[machineSelect.value]?.status || getDefaultStatus(machineSelect.value);
 }
 
+function syncStatusTimeInput() {
+  const savedTime = jobsState[machineSelect.value]?.updatedAt;
+  statusTimeInput.value = toDateTimeLocalValue(savedTime || new Date());
+}
+
 function syncDetailInput() {
   detailInput.value = getDefaultDetail(machineSelect.value);
 }
@@ -668,6 +700,7 @@ scanForm.addEventListener("submit", async (event) => {
   const area = areaInput.value.trim();
   const status = statusInput.value;
   const detail = detailInput.value.trim();
+  const statusTimeIso = getStatusTimeIso();
   const lookup = getQrLookup(qrInput.value);
   const scannedBy = scannerInput.value.trim() || "station-01";
   const selectedPart = getSelectedPartCandidate();
@@ -682,6 +715,12 @@ scanForm.addEventListener("submit", async (event) => {
   if (!lookup.found) {
     showResult("ไม่สามารถบันทึกได้", `ไม่พบ partCode ${lookup.parsed.partCode || "-"} ใน master mapping กรุณาตรวจสอบ Part Tag`);
     focusQrInput(true);
+    return;
+  }
+
+  if (!statusTimeIso) {
+    showResult("ไม่สามารถบันทึกได้", "กรุณาระบุเวลา Status ให้ถูกต้อง หรือกดใช้เวลาปัจจุบัน");
+    statusTimeInput.focus();
     return;
   }
 
@@ -701,7 +740,7 @@ scanForm.addEventListener("submit", async (event) => {
     qrValue: lookup.qrValue,
     status,
     detail,
-    updatedAt: new Date().toISOString(),
+    updatedAt: statusTimeIso,
     scannedBy
   };
 
@@ -715,6 +754,7 @@ scanForm.addEventListener("submit", async (event) => {
   qrInput.value = lookup.parsed.partCode || lookup.qrValue;
   renderScanReadout(lookup.qrValue, selectedPart);
   setCameraState("บันทึกสำเร็จ", `บันทึก ${selectedPart.entityCode} ให้ ${machineId} แล้ว พร้อมสแกนรายการถัดไป`);
+  statusTimeInput.value = toDateTimeLocalValue(statusTimeIso);
   focusQrInput(true);
 });
 
@@ -761,6 +801,7 @@ resetStorageButton.addEventListener("click", async () => {
   qrInput.value = "";
   scannerLastSubmittedValue = "";
   detailInput.value = "";
+  statusTimeInput.value = toDateTimeLocalValue();
   renderPartSelection("");
   renderScanReadout("");
   setScannerReadyState();
@@ -784,7 +825,13 @@ photoInput.addEventListener("change", async () => {
 machineSelect.addEventListener("change", () => {
   syncAreaInput();
   syncStatusInput();
+  syncStatusTimeInput();
   syncDetailInput();
+  focusQrInput();
+});
+
+useCurrentTimeButton.addEventListener("click", () => {
+  statusTimeInput.value = toDateTimeLocalValue();
   focusQrInput();
 });
 
@@ -806,6 +853,7 @@ async function initializeScanPage() {
   renderScannerOptions();
   syncAreaInput();
   syncStatusInput();
+  syncStatusTimeInput();
   syncDetailInput();
   renderJobList();
   renderPartSelection("");
