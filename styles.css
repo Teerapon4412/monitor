@@ -597,6 +597,10 @@ h2 {
   grid-template-columns: 1fr;
 }
 
+.part-shell {
+  grid-template-columns: 1fr;
+}
+
 .scan-grid {
   grid-template-columns: minmax(360px, 0.85fr) minmax(0, 1.15fr);
 }
@@ -771,9 +775,90 @@ h2 {
   cursor: pointer;
 }
 
+.action-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .action-button.primary {
   background: linear-gradient(135deg, rgba(11, 65, 76, 0.95), rgba(9, 27, 49, 0.95));
   border-color: rgba(92, 225, 230, 0.2);
+}
+
+.part-manager {
+  padding: 22px;
+}
+
+.part-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 220px;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.part-list-header,
+.part-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.85fr) minmax(280px, 1.6fr) minmax(150px, 0.65fr) minmax(220px, 1fr) 120px;
+  gap: 12px;
+  align-items: center;
+}
+
+.part-list-header {
+  padding: 0 12px 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.part-list {
+  display: grid;
+  gap: 10px;
+  max-height: 68vh;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.part-row {
+  padding: 14px;
+  border: 1px solid rgba(142, 179, 214, 0.16);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.part-code-block,
+.part-name-block,
+.part-inline-field {
+  display: grid;
+  gap: 5px;
+}
+
+.part-code-block strong,
+.part-name-block strong {
+  color: var(--text);
+}
+
+.part-code-block span,
+.part-name-block span,
+.part-inline-field span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.part-inline-field input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font: inherit;
+  padding: 12px 13px;
+}
+
+.part-inline-field input:focus {
+  outline: 2px solid rgba(92, 225, 230, 0.28);
+  outline-offset: 2px;
 }
 
 .scan-result {
@@ -847,8 +932,15 @@ h2 {
   .scan-inline-actions,
   .scan-time-actions,
   .history-toolbar,
-  .scan-readout {
+  .scan-readout,
+  .part-toolbar,
+  .part-list-header,
+  .part-row {
     grid-template-columns: 1fr;
+  }
+
+  .part-list-header {
+    display: none;
   }
 
   .compact-button {

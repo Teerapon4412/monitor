@@ -1,6 +1,7 @@
 (function () {
   const STORAGE_KEY = "monitor.currentMachineJobs";
   const HISTORY_STORAGE_KEY = "monitor.machineJobHistory";
+  const PART_SETTINGS_STORAGE_KEY = "monitor.partSettings";
 
   function cloneJobs(jobs) {
     return JSON.parse(JSON.stringify(jobs || {}));
@@ -98,6 +99,26 @@
     };
   }
 
+  function rowToPartSetting(row) {
+    return {
+      partCode: row.part_code || "",
+      injectionTimeSeconds: Number(row.injection_time_seconds || 0),
+      note: row.note || "",
+      updatedAt: row.updated_at || "",
+      updatedBy: row.updated_by || ""
+    };
+  }
+
+  function partSettingToRow(partCode, setting) {
+    return {
+      part_code: partCode,
+      injection_time_seconds: Number(setting.injectionTimeSeconds || 0),
+      note: setting.note || "",
+      updated_at: setting.updatedAt || new Date().toISOString(),
+      updated_by: setting.updatedBy || ""
+    };
+  }
+
   function loadLocalJobs(defaultJobs) {
     const savedValue = window.localStorage.getItem(STORAGE_KEY);
 
@@ -147,6 +168,24 @@
     history[machineId] = [entry, ...machineHistory].slice(0, 30);
     saveLocalHistory(history);
     return history[machineId];
+  }
+
+  function loadLocalPartSettings() {
+    const savedValue = window.localStorage.getItem(PART_SETTINGS_STORAGE_KEY);
+
+    if (!savedValue) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(savedValue);
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveLocalPartSettings(settings) {
+    window.localStorage.setItem(PART_SETTINGS_STORAGE_KEY, JSON.stringify(settings || {}));
   }
 
   async function fetchCloudJobs(defaultJobs) {
@@ -263,6 +302,61 @@
     return history;
   }
 
+  async function fetchCloudPartSettings() {
+    const config = getSupabaseConfig();
+
+    if (!config.enabled) {
+      return loadLocalPartSettings();
+    }
+
+    const response = await fetch(
+      `${config.url}/rest/v1/part_settings?select=part_code,injection_time_seconds,note,updated_at,updated_by&order=part_code.asc`,
+      {
+        method: "GET",
+        headers: getHeaders()
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Supabase part settings load failed: ${response.status}`);
+    }
+
+    const rows = await response.json();
+    const settings = {};
+
+    rows.forEach((row) => {
+      const setting = rowToPartSetting(row);
+
+      if (setting.partCode) {
+        settings[setting.partCode] = setting;
+      }
+    });
+
+    saveLocalPartSettings(settings);
+    return settings;
+  }
+
+  async function upsertCloudPartSetting(partCode, setting) {
+    const config = getSupabaseConfig();
+
+    if (!config.enabled) {
+      return;
+    }
+
+    const response = await fetch(
+      `${config.url}/rest/v1/part_settings?on_conflict=part_code`,
+      {
+        method: "POST",
+        headers: getHeaders(true),
+        body: JSON.stringify([partSettingToRow(partCode, setting)])
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Supabase part settings save failed: ${response.status}`);
+    }
+  }
+
   async function loadJobs(defaultJobs) {
     try {
       return await fetchCloudJobs(defaultJobs);
@@ -322,6 +416,36 @@
     }
   }
 
+  async function loadPartSettings() {
+    try {
+      return await fetchCloudPartSettings();
+    } catch (error) {
+      return loadLocalPartSettings();
+    }
+  }
+
+  async function savePartSetting(partCode, setting) {
+    const settings = loadLocalPartSettings();
+    const nextSetting = {
+      partCode,
+      injectionTimeSeconds: Number(setting.injectionTimeSeconds || 0),
+      note: setting.note || "",
+      updatedAt: setting.updatedAt || new Date().toISOString(),
+      updatedBy: setting.updatedBy || ""
+    };
+
+    settings[partCode] = nextSetting;
+    saveLocalPartSettings(settings);
+
+    try {
+      await upsertCloudPartSetting(partCode, nextSetting);
+    } catch (error) {
+      // Keep local part settings when cloud is unavailable or not set up yet.
+    }
+
+    return nextSetting;
+  }
+
   function getModeLabel() {
     return getSupabaseConfig().enabled ? "supabase" : "local";
   }
@@ -333,6 +457,8 @@
     resetJobs,
     recordHistory,
     loadHistory,
+    loadPartSettings,
+    savePartSetting,
     getModeLabel
   };
 })();

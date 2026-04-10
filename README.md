@@ -6,6 +6,7 @@ Static machine monitor and QR scan station for updating current MC production st
 
 - `index.html` - monitor dashboard
 - `scan.html` - QR scan station
+- `part.html` - part master settings and injection time editor
 
 ## Deploy
 

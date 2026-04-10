@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ข้อมูล Part และเวลาฉีด</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell part-shell">
+      <main class="dashboard">
+        <header class="topbar panel">
+          <div>
+            <p class="eyebrow">PART MASTER</p>
+            <h1>ข้อมูล Part และเวลาฉีด</h1>
+            <p class="lead">ค้นหา Part จาก Master Data แล้วแก้ไขเวลาฉีดของแต่ละชิ้นงาน เพื่อใช้เป็นข้อมูลกลางของหน้างาน</p>
+          </div>
+          <div class="topbar-meta">
+            <div>
+              <span>ไปที่</span>
+              <strong><a class="inline-link" href="./index.html">หน้า Monitor</a></strong>
+            </div>
+            <div>
+              <span>ไปที่</span>
+              <strong><a class="inline-link" href="./scan.html">หน้า Scan QR</a></strong>
+            </div>
+          </div>
+        </header>
+
+        <section class="stats-grid">
+          <article class="panel stat-card accent-cyan">
+            <span>จำนวน Part ทั้งหมด</span>
+            <strong id="partTotal">--</strong>
+            <small>จาก Master Data</small>
+          </article>
+          <article class="panel stat-card accent-amber">
+            <span>ตั้งค่าเวลาฉีดแล้ว</span>
+            <strong id="configuredTotal">--</strong>
+            <small id="configuredHint">กำลังโหลดข้อมูล</small>
+          </article>
+          <article class="panel stat-card accent-coral">
+            <span>เวลาฉีดเฉลี่ย</span>
+            <strong id="averageInjectionTime">-- sec</strong>
+            <small>นับเฉพาะ Part ที่ตั้งค่าแล้ว</small>
+          </article>
+        </section>
+
+        <section class="panel part-manager">
+          <div class="section-heading">
+            <span>รายการ Part</span>
+            <span class="badge neutral" id="partDataMode">กำลังโหลด</span>
+          </div>
+
+          <div class="part-toolbar">
+            <label class="field">
+              <span>ค้นหา Part Code / ชื่อชิ้นงาน</span>
+              <input id="partSearchInput" type="search" autocomplete="off" placeholder="เช่น WP6000010570 หรือ RG14" />
+            </label>
+            <label class="field">
+              <span>แสดงรายการ</span>
+              <select id="partFilterInput">
+                <option value="all">ทั้งหมด</option>
+                <option value="configured">มีเวลาฉีดแล้ว</option>
+                <option value="missing">ยังไม่ตั้งค่า</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="part-list-header">
+            <span>Part Code</span>
+            <span>ชื่อชิ้นงาน</span>
+            <span>เวลาฉีด (วินาที)</span>
+            <span>หมายเหตุ</span>
+            <span>บันทึก</span>
+          </div>
+          <div class="part-list" id="partList"></div>
+          <p class="inspector-copy" id="partEmptyMessage" hidden>ไม่พบ Part ตามเงื่อนไขที่ค้นหา</p>
+        </section>
+      </main>
+    </div>
+
+    <script src="./config.js"></script>
+    <script src="./data-service.js"></script>
+    <script src="./data/master-data.js"></script>
+    <script src="./part.js"></script>
+  </body>
+</html>

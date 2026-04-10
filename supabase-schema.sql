@@ -31,8 +31,17 @@ create table if not exists public.machine_job_history (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.part_settings (
+  part_code text primary key,
+  injection_time_seconds numeric not null default 0,
+  note text not null default '',
+  updated_at timestamptz not null default now(),
+  updated_by text not null default ''
+);
+
 alter table public.machine_jobs enable row level security;
 alter table public.machine_job_history enable row level security;
+alter table public.part_settings enable row level security;
 
 drop policy if exists "machine_jobs_select_all" on public.machine_jobs;
 create policy "machine_jobs_select_all"
@@ -75,4 +84,26 @@ create policy "machine_job_history_insert_all"
 on public.machine_job_history
 for insert
 to anon, authenticated
+with check (true);
+
+drop policy if exists "part_settings_select_all" on public.part_settings;
+create policy "part_settings_select_all"
+on public.part_settings
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "part_settings_insert_all" on public.part_settings;
+create policy "part_settings_insert_all"
+on public.part_settings
+for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "part_settings_update_all" on public.part_settings;
+create policy "part_settings_update_all"
+on public.part_settings
+for update
+to anon, authenticated
+using (true)
 with check (true);
