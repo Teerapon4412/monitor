@@ -47,6 +47,8 @@ let barcodeDetector;
 let currentPartCandidates = [];
 let jobsState = cloneJobs(defaultJobs);
 let previewObjectUrl = "";
+let scannerInputTimerId;
+let scannerLastSubmittedValue = "";
 const defaultMachineAreas = {
   "MC 10": "Injection",
   "MC 12": "Injection",
@@ -445,6 +447,41 @@ function submitScan() {
   }, 150);
 }
 
+function setScannerReadyState(statusText = "พร้อมรับ Scanner", messageText = "ยิงสแกนเนอร์เข้าช่อง QR หรือถ่ายรูป QR จากมือถือได้ทันที") {
+  setCameraState(statusText, messageText);
+}
+
+function updateQrPreview(rawValue, sourceLabel = "Scanner") {
+  const lookup = renderPartSelection(rawValue);
+  renderScanReadout(lookup.qrValue, getSelectedPartCandidate());
+
+  if (rawValue.trim()) {
+    const partCode = lookup.parsed.partCode || rawValue.trim();
+    setCameraState(
+      `รับข้อมูลจาก ${sourceLabel}`,
+      `อ่านค่า ${partCode} แล้ว ${lookup.found ? "พบข้อมูลใน Master Data" : "ยังไม่พบใน Master Data"}`
+    );
+  }
+
+  return lookup;
+}
+
+function scheduleScannerSubmit(sourceLabel = "Scanner") {
+  window.clearTimeout(scannerInputTimerId);
+
+  scannerInputTimerId = window.setTimeout(() => {
+    const scannedValue = qrInput.value.trim();
+
+    if (!scannedValue || scannedValue === scannerLastSubmittedValue) {
+      return;
+    }
+
+    scannerLastSubmittedValue = scannedValue;
+    updateQrPreview(scannedValue, sourceLabel);
+    submitScan();
+  }, 450);
+}
+
 function setCameraState(statusText, messageText) {
   cameraStatus.textContent = statusText;
   cameraMessage.textContent = messageText;
@@ -458,7 +495,7 @@ function resetPhotoPreview() {
 
   cameraPreview.removeAttribute("src");
   photoInput.value = "";
-  setCameraState("ยังไม่มีรูป", "กดถ่ายรูป QR หรือเลือกรูปจากมือถือ แล้วระบบจะอ่านข้อมูลจากรูป");
+  setScannerReadyState("พร้อมรับ Scanner", "ยิงสแกนเนอร์เข้าช่อง QR หรือกดถ่ายรูป QR จากมือถือ แล้วระบบจะอ่านข้อมูลให้อัตโนมัติ");
 }
 
 async function scanPhotoFile(file) {
@@ -496,8 +533,7 @@ async function scanPhotoFile(file) {
     }
 
     qrInput.value = qrValue;
-    const lookup = renderPartSelection(qrValue);
-    renderScanReadout(lookup.qrValue, getSelectedPartCandidate());
+    const lookup = updateQrPreview(qrValue, "รูป QR");
     setCameraState("พบ QR แล้ว", `อ่านค่า ${qrValue} จากรูปแล้ว กำลังบันทึกให้อัตโนมัติ`);
     submitScan();
   } catch (error) {
@@ -555,12 +591,14 @@ scanForm.addEventListener("submit", async (event) => {
 
   await saveJobs(jobs);
   renderJobList();
+  scannerLastSubmittedValue = "";
   showResult(
     `บันทึก ${machineId} เรียบร้อย`,
     `${machineId} ในพื้นที่ ${area} กำลังผลิต ${selectedPart.entityCode} - ${selectedPart.entityName} จาก QR ${lookup.qrValue}`
   );
   qrInput.value = lookup.parsed.partCode || lookup.qrValue;
   renderScanReadout(lookup.qrValue, selectedPart);
+  setCameraState("บันทึกสำเร็จ", `บันทึก ${selectedPart.entityCode} ให้ ${machineId} แล้ว พร้อมสแกนรายการถัดไป`);
   focusQrInput(true);
 });
 
@@ -575,12 +613,24 @@ qrInput.addEventListener("keydown", (event) => {
     return;
   }
 
+  scannerLastSubmittedValue = qrInput.value.trim();
+  updateQrPreview(qrInput.value, "Scanner");
   submitScan();
 });
 
 qrInput.addEventListener("input", () => {
-  const lookup = renderPartSelection(qrInput.value);
-  renderScanReadout(lookup.qrValue, getSelectedPartCandidate());
+  updateQrPreview(qrInput.value, "Scanner");
+
+  if (!isTouchLikeDevice()) {
+    scheduleScannerSubmit("Scanner");
+  }
+});
+
+qrInput.addEventListener("paste", () => {
+  window.setTimeout(() => {
+    updateQrPreview(qrInput.value, "Scanner");
+    scheduleScannerSubmit("Scanner");
+  }, 0);
 });
 
 partSelection.addEventListener("change", () => {
@@ -593,9 +643,11 @@ resetStorageButton.addEventListener("click", async () => {
   renderJobList();
   showResult("รีเซ็ตข้อมูลแล้ว", "สถานะเครื่องจักรถูกคืนกลับเป็นค่าเริ่มต้นจากไฟล์ตั้งต้น");
   qrInput.value = "";
+  scannerLastSubmittedValue = "";
   detailInput.value = "";
   renderPartSelection("");
   renderScanReadout("");
+  setScannerReadyState();
   focusQrInput();
 });
 
@@ -642,6 +694,7 @@ async function initializeScanPage() {
   renderJobList();
   renderPartSelection("");
   renderScanReadout("");
+  setScannerReadyState();
   focusQrInput();
 }
 
