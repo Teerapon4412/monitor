@@ -486,6 +486,32 @@ h2 {
   padding-right: 4px;
 }
 
+.history-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.history-toolbar label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.history-toolbar input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  color-scheme: dark;
+  font: inherit;
+}
+
 .history-card {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr);
@@ -806,6 +832,7 @@ h2 {
 
   .scan-inline-actions,
   .scan-time-actions,
+  .history-toolbar,
   .scan-readout {
     grid-template-columns: 1fr;
   }

@@ -112,6 +112,18 @@
                 <span>ประวัติอัปเดตสถานะ</span>
                 <span class="badge neutral" id="historyCountBadge">-- รายการ</span>
               </div>
+              <div class="history-toolbar">
+                <label>
+                  <span>จากวันที่</span>
+                  <input id="historyFromDate" type="date" />
+                </label>
+                <label>
+                  <span>ถึงวันที่</span>
+                  <input id="historyToDate" type="date" />
+                </label>
+                <button class="action-button compact-button" id="clearHistoryFilterButton" type="button">ล้างตัวกรอง</button>
+                <button class="action-button primary compact-button" id="exportHistoryButton" type="button">Export CSV</button>
+              </div>
               <div class="status-history-list" id="statusHistoryList"></div>
             </section>
           </article>

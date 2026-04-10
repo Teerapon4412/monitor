@@ -61,6 +61,10 @@ const inspectorQrValue = document.getElementById("inspectorQrValue");
 const inspectorService = document.getElementById("inspectorService");
 const statusHistoryList = document.getElementById("statusHistoryList");
 const historyCountBadge = document.getElementById("historyCountBadge");
+const historyFromDate = document.getElementById("historyFromDate");
+const historyToDate = document.getElementById("historyToDate");
+const clearHistoryFilterButton = document.getElementById("clearHistoryFilterButton");
+const exportHistoryButton = document.getElementById("exportHistoryButton");
 const dataService = window.monitorDataService;
 
 let selectedMachineId = "MC 10";
@@ -432,6 +436,40 @@ function getMachineHistory(machineId) {
   ];
 }
 
+function isHistoryEntryInDateRange(entry) {
+  if (!entry.updatedAt) {
+    return true;
+  }
+
+  const timestamp = new Date(entry.updatedAt).getTime();
+
+  if (Number.isNaN(timestamp)) {
+    return true;
+  }
+
+  if (historyFromDate?.value) {
+    const fromTimestamp = new Date(`${historyFromDate.value}T00:00:00`).getTime();
+
+    if (!Number.isNaN(fromTimestamp) && timestamp < fromTimestamp) {
+      return false;
+    }
+  }
+
+  if (historyToDate?.value) {
+    const toTimestamp = new Date(`${historyToDate.value}T23:59:59`).getTime();
+
+    if (!Number.isNaN(toTimestamp) && timestamp > toTimestamp) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getFilteredMachineHistory(machineId) {
+  return getMachineHistory(machineId).filter(isHistoryEntryInDateRange);
+}
+
 function renderStatusHistory(machineId) {
   if (!statusHistoryList || !historyCountBadge) {
     return;
@@ -443,7 +481,7 @@ function renderStatusHistory(machineId) {
     return;
   }
 
-  const history = getMachineHistory(machineId).slice(0, 8);
+  const history = getFilteredMachineHistory(machineId).slice(0, 50);
   historyCountBadge.textContent = `${history.length} รายการ`;
 
   if (history.length === 0) {
@@ -473,6 +511,49 @@ function renderStatusHistory(machineId) {
     `;
     statusHistoryList.appendChild(item);
   });
+}
+
+function escapeCsvValue(value) {
+  const text = String(value ?? "");
+
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  return text;
+}
+
+function exportSelectedMachineHistory() {
+  const machineId = selectedMachineId;
+  const history = getFilteredMachineHistory(machineId);
+
+  if (history.length === 0) {
+    return;
+  }
+
+  const headers = ["machineId", "status", "updatedAt", "scannedBy", "area", "partCode", "partName", "qrValue", "detail"];
+  const rows = history.map((entry) => [
+    machineId,
+    statusLabel[entry.status] || entry.status || "",
+    entry.updatedAt || "",
+    entry.scannedBy || "",
+    entry.area || "",
+    entry.partCode || "",
+    entry.partName || "",
+    entry.qrValue || entry.directValue || "",
+    entry.detail || ""
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map(escapeCsvValue).join(",")).join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `${machineId.replace(/\s+/g, "-")}-status-history.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function renderMachines() {
@@ -593,6 +674,20 @@ async function refreshDashboard() {
 async function initializeDashboard() {
   renderTicker();
   await refreshDashboard();
+
+  [historyFromDate, historyToDate].forEach((input) => {
+    input?.addEventListener("change", () => {
+      renderStatusHistory(selectedMachineId);
+    });
+  });
+
+  clearHistoryFilterButton?.addEventListener("click", () => {
+    historyFromDate.value = "";
+    historyToDate.value = "";
+    renderStatusHistory(selectedMachineId);
+  });
+
+  exportHistoryButton?.addEventListener("click", exportSelectedMachineHistory);
 
   refreshTimerId = window.setInterval(() => {
     refreshDashboard();
