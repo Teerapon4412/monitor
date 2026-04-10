@@ -246,7 +246,7 @@ function renderPartList() {
       </div>
       <div class="part-name-block">
         <strong>${escapeHtml(item.entityName || "-")}</strong>
-        <span>อัปเดตล่าสุด: ${escapeHtml(formatDateTime(setting.updatedAt))}</span>
+        <span class="part-updated-at">อัปเดตล่าสุด: ${escapeHtml(formatDateTime(setting.updatedAt))}</span>
       </div>
       <label class="part-inline-field">
         <span>Cycle Time</span>
@@ -292,7 +292,22 @@ async function savePartRow(row) {
   });
 
   partSettings[partCode] = savedSetting;
-  saveButton.textContent = "บันทึกแล้ว";
+  const updatedAtText = row.querySelector(".part-updated-at");
+
+  if (updatedAtText) {
+    updatedAtText.textContent = `อัปเดตล่าสุด: ${formatDateTime(savedSetting.updatedAt)}`;
+  }
+
+  if (savedSetting.syncStatus === "cloud") {
+    saveButton.textContent = "Sync แล้ว";
+    partQrStatus.textContent = `บันทึก Cycle Time ของ ${partCode} ไปยัง Supabase แล้ว`;
+    partQrStatus.classList.remove("warning-text");
+  } else {
+    saveButton.textContent = "บันทึกในเครื่อง";
+    partQrStatus.textContent = `บันทึก Cycle Time ของ ${partCode} ในเครื่องนี้แล้ว แต่ยังไม่ Sync Supabase: กรุณารัน supabase-schema.sql เพื่อสร้าง part_settings`;
+    partQrStatus.classList.add("warning-text");
+  }
+
   renderSummary();
 
   window.setTimeout(() => {

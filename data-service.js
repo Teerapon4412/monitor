@@ -439,8 +439,10 @@
 
     try {
       await upsertCloudPartSetting(partCode, nextSetting);
+      nextSetting.syncStatus = "cloud";
     } catch (error) {
-      // Keep local part settings when cloud is unavailable or not set up yet.
+      nextSetting.syncStatus = "local";
+      nextSetting.syncError = error.message || "Cloud sync unavailable";
     }
 
     return nextSetting;
