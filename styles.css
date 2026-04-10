@@ -278,6 +278,30 @@ h2 {
   gap: 4px;
 }
 
+.topbar-action {
+  align-items: center;
+}
+
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid rgba(92, 225, 230, 0.24);
+  border-radius: 999px;
+  color: var(--cyan);
+  background: rgba(92, 225, 230, 0.08);
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nav-pill:hover {
+  border-color: rgba(92, 225, 230, 0.55);
+  background: rgba(92, 225, 230, 0.14);
+}
+
 .stats-grid,
 .ticker-track {
   display: grid;
