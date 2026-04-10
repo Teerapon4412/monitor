@@ -164,6 +164,22 @@ function getCurrentPart(machine) {
   return qrLookup.get(partCode) || catalogLookup.get(partCode) || null;
 }
 
+function resolveHistoryPartName(entry) {
+  if (entry.partName) {
+    return entry.partName;
+  }
+
+  if (entry.partCode && catalogLookup.has(entry.partCode)) {
+    return catalogLookup.get(entry.partCode).entityName || "";
+  }
+
+  if (entry.qrValue && qrLookup.has(entry.qrValue)) {
+    return qrLookup.get(entry.qrValue).entityName || "";
+  }
+
+  return "";
+}
+
 function getFallbackMachine() {
   return getMachine(selectedMachineId) || machines[0] || null;
 }
@@ -493,6 +509,7 @@ function renderStatusHistory(machineId) {
   history.forEach((entry) => {
     const item = document.createElement("article");
     const entryStatus = entry.status || "running";
+    const partName = resolveHistoryPartName(entry);
     item.className = `history-card history-${entryStatus}`;
     item.innerHTML = `
       <div class="history-marker"></div>
@@ -505,6 +522,7 @@ function renderStatusHistory(machineId) {
         <div class="history-meta">
           <span>${entry.scannedBy || "--"}</span>
           <span>${entry.partCode || entry.qrValue || "--"}</span>
+          <span>${partName || "ไม่พบชื่อชิ้นงาน"}</span>
           <span>${entry.area || "--"}</span>
         </div>
       </div>
@@ -531,7 +549,7 @@ function exportSelectedMachineHistory() {
     return;
   }
 
-  const headers = ["machineId", "status", "updatedAt", "scannedBy", "area", "partCode", "partName", "qrValue", "detail"];
+  const headers = ["เครื่อง", "สถานะ", "เวลา Status", "ผู้สแกน / สถานี", "พื้นที่", "รหัสชิ้นงาน", "ชื่อชิ้นงาน", "QR", "Detail"];
   const rows = history.map((entry) => [
     machineId,
     statusLabel[entry.status] || entry.status || "",
@@ -539,7 +557,7 @@ function exportSelectedMachineHistory() {
     entry.scannedBy || "",
     entry.area || "",
     entry.partCode || "",
-    entry.partName || "",
+    resolveHistoryPartName(entry),
     entry.qrValue || entry.directValue || "",
     entry.detail || ""
   ]);

@@ -569,6 +569,12 @@ h2 {
   font-size: 0.82rem;
 }
 
+.history-meta span:nth-child(3) {
+  flex-basis: 100%;
+  color: var(--text);
+  font-weight: 700;
+}
+
 .history-empty {
   padding: 18px;
   border-radius: 18px;
