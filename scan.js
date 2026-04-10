@@ -745,6 +745,7 @@ scanForm.addEventListener("submit", async (event) => {
   };
 
   await saveJobs(jobs);
+  await dataService.recordHistory(machineId, jobs[machineId]);
   renderJobList();
   scannerLastSubmittedValue = "";
   showResult(

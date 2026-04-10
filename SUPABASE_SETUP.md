@@ -8,7 +8,9 @@
 
 When `config.js` has a valid Supabase URL and anon key:
 - `scan.html` writes machine jobs to Supabase
+- `scan.html` also writes status update history to Supabase
 - `index.html` reads the same machine jobs from Supabase
+- `index.html` reads machine status history from Supabase
 - monitor refreshes from cloud every 5 seconds
 
 If Supabase is not configured, the app falls back to browser `localStorage`.

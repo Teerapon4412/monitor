@@ -59,6 +59,8 @@ const inspectorPartCode = document.getElementById("inspectorPartCode");
 const inspectorPartName = document.getElementById("inspectorPartName");
 const inspectorQrValue = document.getElementById("inspectorQrValue");
 const inspectorService = document.getElementById("inspectorService");
+const statusHistoryList = document.getElementById("statusHistoryList");
+const historyCountBadge = document.getElementById("historyCountBadge");
 const dataService = window.monitorDataService;
 
 let selectedMachineId = "MC 10";
@@ -80,6 +82,7 @@ const catalogLookup = new Map(
 );
 const defaultMachineJobs = window.currentMachineJobsData?.jobs || {};
 let machineJobsState = { ...defaultMachineJobs };
+let machineHistoryState = {};
 
 function normalizeArea(areaValue, fallbackArea) {
   if (areaValue === "Injection" || areaValue === "Assembly") {
@@ -100,6 +103,11 @@ function normalizeArea(areaValue, fallbackArea) {
 async function loadMachineJobs() {
   machineJobsState = await dataService.loadJobs(defaultMachineJobs);
   return machineJobsState;
+}
+
+async function loadMachineHistory() {
+  machineHistoryState = await dataService.loadHistory();
+  return machineHistoryState;
 }
 
 function getMachineJob(machineId) {
@@ -299,6 +307,7 @@ function setSelectedMachine(machineId) {
     inspectorQrValue.textContent = "--";
     inspectorService.textContent = "--";
     focusStrip.innerHTML = "";
+    renderStatusHistory(null);
     return;
   }
 
@@ -329,6 +338,7 @@ function setSelectedMachine(machineId) {
   });
 
   renderFocusStrip();
+  renderStatusHistory(machine.id);
 }
 
 function renderSummary() {
@@ -400,6 +410,68 @@ function renderFocusStrip() {
       <strong>${card.value}</strong>
     `;
     focusStrip.appendChild(item);
+  });
+}
+
+function getMachineHistory(machineId) {
+  const savedHistory = Array.isArray(machineHistoryState[machineId]) ? machineHistoryState[machineId] : [];
+  const currentJob = getMachineJob(machineId);
+  const hasCurrentInHistory = savedHistory.some((entry) => entry.updatedAt === currentJob?.updatedAt);
+
+  if (!currentJob || hasCurrentInHistory) {
+    return savedHistory;
+  }
+
+  return [
+    {
+      ...currentJob,
+      machineId,
+      id: `${machineId}-current`
+    },
+    ...savedHistory
+  ];
+}
+
+function renderStatusHistory(machineId) {
+  if (!statusHistoryList || !historyCountBadge) {
+    return;
+  }
+
+  if (!machineId) {
+    historyCountBadge.textContent = "-- รายการ";
+    statusHistoryList.innerHTML = `<p class="history-empty">เลือกเครื่องจากผังเพื่อดูประวัติอัปเดตสถานะ</p>`;
+    return;
+  }
+
+  const history = getMachineHistory(machineId).slice(0, 8);
+  historyCountBadge.textContent = `${history.length} รายการ`;
+
+  if (history.length === 0) {
+    statusHistoryList.innerHTML = `<p class="history-empty">ยังไม่มีประวัติอัปเดตสถานะของ ${machineId}</p>`;
+    return;
+  }
+
+  statusHistoryList.innerHTML = "";
+  history.forEach((entry) => {
+    const item = document.createElement("article");
+    const entryStatus = entry.status || "running";
+    item.className = `history-card history-${entryStatus}`;
+    item.innerHTML = `
+      <div class="history-marker"></div>
+      <div class="history-body">
+        <div class="history-topline">
+          <strong>${statusLabel[entryStatus] || entryStatus}</strong>
+          <span>${formatLastScan(entry.updatedAt)}</span>
+        </div>
+        <p>${entry.detail || "ไม่มี Detail"}</p>
+        <div class="history-meta">
+          <span>${entry.scannedBy || "--"}</span>
+          <span>${entry.partCode || entry.qrValue || "--"}</span>
+          <span>${entry.area || "--"}</span>
+        </div>
+      </div>
+    `;
+    statusHistoryList.appendChild(item);
   });
 }
 
@@ -510,6 +582,7 @@ function setTimestamp() {
 
 async function refreshDashboard() {
   await loadMachineJobs();
+  await loadMachineHistory();
   renderMachines();
   renderAlerts();
   renderSummary();

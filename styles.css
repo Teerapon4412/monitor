@@ -470,6 +470,86 @@ h2 {
   margin-top: 16px;
 }
 
+.status-history-panel {
+  margin-top: 16px;
+  padding: 18px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(8, 24, 42, 0.88), rgba(5, 16, 29, 0.94));
+  border: 1px solid rgba(92, 225, 230, 0.12);
+}
+
+.status-history-list {
+  display: grid;
+  gap: 12px;
+  max-height: 360px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.history-card {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.history-marker {
+  width: 10px;
+  min-height: 100%;
+  border-radius: 999px;
+  background: var(--lime);
+  box-shadow: 0 0 12px rgba(150, 245, 80, 0.45);
+}
+
+.history-warning .history-marker {
+  background: var(--amber);
+  box-shadow: 0 0 12px rgba(255, 184, 77, 0.45);
+}
+
+.history-down .history-marker {
+  background: var(--coral);
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.45);
+}
+
+.history-body {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.history-topline,
+.history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.history-topline span,
+.history-meta,
+.history-empty {
+  color: var(--muted);
+}
+
+.history-body p {
+  line-height: 1.45;
+}
+
+.history-meta {
+  font-size: 0.82rem;
+}
+
+.history-empty {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
 .inspector-grid span,
 .focus-card span {
   display: block;

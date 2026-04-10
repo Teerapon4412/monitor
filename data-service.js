@@ -1,5 +1,6 @@
 (function () {
   const STORAGE_KEY = "monitor.currentMachineJobs";
+  const HISTORY_STORAGE_KEY = "monitor.machineJobHistory";
 
   function cloneJobs(jobs) {
     return JSON.parse(JSON.stringify(jobs || {}));
@@ -63,6 +64,40 @@
     };
   }
 
+  function rowToHistory(row) {
+    return {
+      id: row.id || "",
+      machineId: row.machine_id || "",
+      area: row.area || "",
+      directValue: row.direct_value || "",
+      partCode: row.part_code || "",
+      partName: row.part_name || "",
+      entityType: row.entity_type || "PART",
+      qrValue: row.qr_value || "",
+      status: row.status || "",
+      detail: row.detail || "",
+      updatedAt: row.updated_at || "",
+      scannedBy: row.scanned_by || "",
+      createdAt: row.created_at || ""
+    };
+  }
+
+  function jobToHistoryRow(machineId, job) {
+    return {
+      machine_id: machineId,
+      area: job.area || "",
+      direct_value: job.directValue || "",
+      part_code: job.partCode || "",
+      part_name: job.partName || "",
+      entity_type: job.entityType || "PART",
+      qr_value: job.qrValue || "",
+      status: job.status || "",
+      detail: job.detail || "",
+      updated_at: job.updatedAt || new Date().toISOString(),
+      scanned_by: job.scannedBy || ""
+    };
+  }
+
   function loadLocalJobs(defaultJobs) {
     const savedValue = window.localStorage.getItem(STORAGE_KEY);
 
@@ -79,6 +114,39 @@
 
   function saveLocalJobs(jobs) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+  }
+
+  function loadLocalHistory() {
+    const savedValue = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+
+    if (!savedValue) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(savedValue);
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveLocalHistory(history) {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+  }
+
+  function appendLocalHistory(machineId, job) {
+    const history = loadLocalHistory();
+    const entry = {
+      ...cloneJobs(job),
+      id: `${machineId}-${Date.now()}`,
+      machineId,
+      createdAt: new Date().toISOString()
+    };
+    const machineHistory = Array.isArray(history[machineId]) ? history[machineId] : [];
+
+    history[machineId] = [entry, ...machineHistory].slice(0, 30);
+    saveLocalHistory(history);
+    return history[machineId];
   }
 
   async function fetchCloudJobs(defaultJobs) {
@@ -132,6 +200,69 @@
     }
   }
 
+  async function insertCloudHistory(machineId, job) {
+    const config = getSupabaseConfig();
+
+    if (!config.enabled) {
+      return;
+    }
+
+    const response = await fetch(
+      `${config.url}/rest/v1/machine_job_history`,
+      {
+        method: "POST",
+        headers: getHeaders(true),
+        body: JSON.stringify([jobToHistoryRow(machineId, job)])
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Supabase history save failed: ${response.status}`);
+    }
+  }
+
+  async function fetchCloudHistory() {
+    const config = getSupabaseConfig();
+
+    if (!config.enabled) {
+      return loadLocalHistory();
+    }
+
+    const response = await fetch(
+      `${config.url}/rest/v1/machine_job_history?select=id,machine_id,area,direct_value,part_code,part_name,entity_type,qr_value,status,detail,updated_at,scanned_by,created_at&order=updated_at.desc&limit=300`,
+      {
+        method: "GET",
+        headers: getHeaders()
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Supabase history load failed: ${response.status}`);
+    }
+
+    const rows = await response.json();
+    const history = {};
+
+    rows.forEach((row) => {
+      const entry = rowToHistory(row);
+
+      if (!entry.machineId) {
+        return;
+      }
+
+      if (!Array.isArray(history[entry.machineId])) {
+        history[entry.machineId] = [];
+      }
+
+      if (history[entry.machineId].length < 30) {
+        history[entry.machineId].push(entry);
+      }
+    });
+
+    saveLocalHistory(history);
+    return history;
+  }
+
   async function loadJobs(defaultJobs) {
     try {
       return await fetchCloudJobs(defaultJobs);
@@ -173,6 +304,24 @@
     return saveAllJobs(defaultJobs);
   }
 
+  async function recordHistory(machineId, job) {
+    appendLocalHistory(machineId, job);
+
+    try {
+      await insertCloudHistory(machineId, job);
+    } catch (error) {
+      // Keep local history when cloud history is unavailable.
+    }
+  }
+
+  async function loadHistory() {
+    try {
+      return await fetchCloudHistory();
+    } catch (error) {
+      return loadLocalHistory();
+    }
+  }
+
   function getModeLabel() {
     return getSupabaseConfig().enabled ? "supabase" : "local";
   }
@@ -182,6 +331,8 @@
     saveJob,
     saveAllJobs,
     resetJobs,
+    recordHistory,
+    loadHistory,
     getModeLabel
   };
 })();
