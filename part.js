@@ -304,7 +304,8 @@ async function savePartRow(row) {
     partQrStatus.classList.remove("warning-text");
   } else {
     saveButton.textContent = "บันทึกในเครื่อง";
-    partQrStatus.textContent = `บันทึก Cycle Time ของ ${partCode} ในเครื่องนี้แล้ว แต่ยังไม่ Sync Supabase: กรุณารัน supabase-schema.sql เพื่อสร้าง part_settings`;
+    const errorDetail = savedSetting.syncError ? ` รายละเอียด: ${savedSetting.syncError}` : "";
+    partQrStatus.textContent = `บันทึก Cycle Time ของ ${partCode} ในเครื่องนี้แล้ว แต่ยังไม่ Sync Supabase.${errorDetail}`;
     partQrStatus.classList.add("warning-text");
   }
 
