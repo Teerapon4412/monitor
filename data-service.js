@@ -311,6 +311,17 @@
     return type ? queue.some((item) => item.type === type) : queue.length > 0;
   }
 
+  function getPendingPartSettingMap() {
+    const queue = loadPendingSyncQueue().filter((item) => item.type === "part_setting_upsert" && item.row?.part_code);
+    const pendingSettings = {};
+
+    queue.forEach((item) => {
+      pendingSettings[item.row.part_code] = rowToPartSetting(item.row);
+    });
+
+    return pendingSettings;
+  }
+
   async function fetchCloudJobs(defaultJobs) {
     if (!isApiEnabled()) {
       return loadLocalJobs(defaultJobs);
@@ -413,7 +424,7 @@
     });
 
     if (hasPendingOperations("part_setting_upsert")) {
-      Object.assign(settings, loadLocalPartSettings());
+      Object.assign(settings, getPendingPartSettingMap());
     }
 
     saveLocalPartSettings(settings);
