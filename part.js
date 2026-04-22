@@ -225,7 +225,7 @@ function renderSummary() {
   configuredTotal.textContent = configuredSettings.length.toLocaleString();
   configuredHint.textContent = `${catalogItems.length - configuredSettings.length} รายการยังไม่ตั้งค่า`;
   averageInjectionTime.textContent = averageTime > 0 ? `${averageTime.toFixed(1)} sec` : "-- sec";
-  partDataMode.textContent = dataService.getModeLabel() === "supabase" ? "Supabase Sync" : "Local Mode";
+  partDataMode.textContent = dataService.getModeLabel() === "render-proxy" ? "Render Proxy Sync" : "Local Queue";
 }
 
 function renderPartList() {
@@ -303,9 +303,9 @@ async function savePartRow(row) {
     partQrStatus.textContent = `บันทึก Cycle Time ของ ${partCode} ไปยัง Supabase แล้ว`;
     partQrStatus.classList.remove("warning-text");
   } else {
-    saveButton.textContent = "บันทึกในเครื่อง";
+    saveButton.textContent = "รอ Sync";
     const errorDetail = savedSetting.syncError ? ` รายละเอียด: ${savedSetting.syncError}` : "";
-    partQrStatus.textContent = `บันทึก Cycle Time ของ ${partCode} ในเครื่องนี้แล้ว แต่ยังไม่ Sync Supabase.${errorDetail}`;
+    partQrStatus.textContent = `บันทึก Cycle Time ของ ${partCode} ในเครื่องนี้แล้ว และเข้าคิวรอ Sync ไปยัง Supabase.${errorDetail}`;
     partQrStatus.classList.add("warning-text");
   }
 

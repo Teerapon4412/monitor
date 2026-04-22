@@ -2,36 +2,62 @@
   const STORAGE_KEY = "monitor.currentMachineJobs";
   const HISTORY_STORAGE_KEY = "monitor.machineJobHistory";
   const PART_SETTINGS_STORAGE_KEY = "monitor.partSettings";
+  const PENDING_SYNC_KEY = "monitor.pendingSyncQueue";
+
+  function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
 
   function cloneJobs(jobs) {
-    return JSON.parse(JSON.stringify(jobs || {}));
+    return cloneJson(jobs || {});
   }
 
-  function getSupabaseConfig() {
-    const config = window.monitorConfig?.supabase || {};
-    const url = typeof config.url === "string" ? config.url.trim().replace(/\/+$/, "") : "";
-    const anonKey = typeof config.anonKey === "string" ? config.anonKey.trim() : "";
-
-    return {
-      url,
-      anonKey,
-      enabled: Boolean(url && anonKey)
-    };
-  }
-
-  function getHeaders(includeJson = false) {
-    const config = getSupabaseConfig();
-    const headers = {
-      apikey: config.anonKey,
-      Authorization: `Bearer ${config.anonKey}`
-    };
-
-    if (includeJson) {
-      headers["Content-Type"] = "application/json";
-      headers.Prefer = "resolution=merge-duplicates,return=representation";
+  function getApiBaseUrl() {
+    if (!window.location || window.location.protocol === "file:") {
+      return "";
     }
 
-    return headers;
+    return `${window.location.origin}/api`;
+  }
+
+  function isApiEnabled() {
+    return Boolean(getApiBaseUrl());
+  }
+
+  async function apiRequest(pathname, options = {}) {
+    const baseUrl = getApiBaseUrl();
+
+    if (!baseUrl) {
+      throw new Error("Render proxy unavailable");
+    }
+
+    const response = await fetch(`${baseUrl}${pathname}`, {
+      method: options.method || "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+
+    if (!response.ok) {
+      let message = `Render proxy failed: ${response.status}`;
+
+      try {
+        const errorBody = await response.json();
+        message = errorBody?.error || errorBody?.message || message;
+      } catch (error) {
+        // Keep default message when error payload is not JSON.
+      }
+
+      throw new Error(message);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
   }
 
   function rowToJob(row) {
@@ -188,98 +214,147 @@
     window.localStorage.setItem(PART_SETTINGS_STORAGE_KEY, JSON.stringify(settings || {}));
   }
 
-  async function fetchCloudJobs(defaultJobs) {
-    const config = getSupabaseConfig();
+  function loadPendingSyncQueue() {
+    const savedValue = window.localStorage.getItem(PENDING_SYNC_KEY);
 
-    if (!config.enabled) {
+    if (!savedValue) {
+      return [];
+    }
+
+    try {
+      const queue = JSON.parse(savedValue);
+      return Array.isArray(queue) ? queue : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function savePendingSyncQueue(queue) {
+    window.localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify(Array.isArray(queue) ? queue : []));
+  }
+
+  function enqueueSyncOperation(operation) {
+    const queue = loadPendingSyncQueue().filter((item) => {
+      if (operation.type === "jobs_bulk") {
+        return item.type !== "jobs_bulk";
+      }
+
+      if (operation.type === "part_setting_upsert") {
+        return !(item.type === "part_setting_upsert" && item.key === operation.key);
+      }
+
+      return true;
+    });
+
+    queue.push({
+      id: `${operation.type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date().toISOString(),
+      ...operation
+    });
+    savePendingSyncQueue(queue);
+    return queue;
+  }
+
+  async function sendSyncOperation(operation) {
+    if (operation.type === "jobs_bulk") {
+      await apiRequest("/jobs/bulk", { method: "POST", body: { rows: operation.rows } });
+      return;
+    }
+
+    if (operation.type === "history_insert") {
+      await apiRequest("/history", { method: "POST", body: { row: operation.row } });
+      return;
+    }
+
+    if (operation.type === "part_setting_upsert") {
+      await apiRequest("/part-settings", { method: "POST", body: { row: operation.row } });
+      return;
+    }
+
+    throw new Error(`Unknown sync operation: ${operation.type}`);
+  }
+
+  async function flushPendingSyncQueue() {
+    if (!isApiEnabled()) {
+      return { success: false, pendingCount: loadPendingSyncQueue().length, error: "Render proxy unavailable" };
+    }
+
+    const queue = loadPendingSyncQueue();
+
+    if (queue.length === 0) {
+      return { success: true, pendingCount: 0 };
+    }
+
+    const remaining = [];
+
+    for (const operation of queue) {
+      try {
+        await sendSyncOperation(operation);
+      } catch (error) {
+        remaining.push(operation, ...queue.slice(queue.indexOf(operation) + 1));
+        savePendingSyncQueue(remaining);
+        return {
+          success: false,
+          pendingCount: remaining.length,
+          error: error.message || "Sync failed"
+        };
+      }
+    }
+
+    savePendingSyncQueue([]);
+    return { success: true, pendingCount: 0 };
+  }
+
+  function hasPendingOperations(type) {
+    const queue = loadPendingSyncQueue();
+    return type ? queue.some((item) => item.type === type) : queue.length > 0;
+  }
+
+  async function fetchCloudJobs(defaultJobs) {
+    if (!isApiEnabled()) {
       return loadLocalJobs(defaultJobs);
     }
 
-    const response = await fetch(
-      `${config.url}/rest/v1/machine_jobs?select=machine_id,area,direct_value,part_code,part_name,entity_type,qr_value,status,detail,updated_at,scanned_by`,
-      {
-        method: "GET",
-        headers: getHeaders()
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Supabase load failed: ${response.status}`);
-    }
-
-    const rows = await response.json();
+    const rows = await apiRequest("/jobs");
     const jobs = cloneJobs(defaultJobs);
 
     rows.forEach((row) => {
       jobs[row.machine_id] = rowToJob(row);
     });
 
+    if (hasPendingOperations("jobs_bulk")) {
+      Object.assign(jobs, loadLocalJobs(defaultJobs));
+    }
+
     saveLocalJobs(jobs);
     return jobs;
   }
 
   async function upsertCloudRows(rows) {
-    const config = getSupabaseConfig();
-
-    if (!config.enabled) {
-      return;
+    if (!isApiEnabled()) {
+      throw new Error("Render proxy unavailable");
     }
 
-    const response = await fetch(
-      `${config.url}/rest/v1/machine_jobs?on_conflict=machine_id`,
-      {
-        method: "POST",
-        headers: getHeaders(true),
-        body: JSON.stringify(rows)
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Supabase save failed: ${response.status}`);
-    }
+    await apiRequest("/jobs/bulk", { method: "POST", body: { rows } });
   }
 
   async function insertCloudHistory(machineId, job) {
-    const config = getSupabaseConfig();
-
-    if (!config.enabled) {
-      return;
+    if (!isApiEnabled()) {
+      throw new Error("Render proxy unavailable");
     }
 
-    const response = await fetch(
-      `${config.url}/rest/v1/machine_job_history`,
-      {
-        method: "POST",
-        headers: getHeaders(true),
-        body: JSON.stringify([jobToHistoryRow(machineId, job)])
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Supabase history save failed: ${response.status}`);
-    }
+    await apiRequest("/history", {
+      method: "POST",
+      body: { row: jobToHistoryRow(machineId, job) }
+    });
   }
 
   async function fetchCloudHistory() {
-    const config = getSupabaseConfig();
-
-    if (!config.enabled) {
+    if (!isApiEnabled()) {
       return loadLocalHistory();
     }
 
-    const response = await fetch(
-      `${config.url}/rest/v1/machine_job_history?select=id,machine_id,area,direct_value,part_code,part_name,entity_type,qr_value,status,detail,updated_at,scanned_by,created_at&order=updated_at.desc&limit=300`,
-      {
-        method: "GET",
-        headers: getHeaders()
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Supabase history load failed: ${response.status}`);
-    }
-
-    const rows = await response.json();
+    const rows = await apiRequest("/history");
     const history = {};
 
     rows.forEach((row) => {
@@ -298,30 +373,34 @@
       }
     });
 
+    if (hasPendingOperations("history_insert")) {
+      const localHistory = loadLocalHistory();
+
+      Object.entries(localHistory).forEach(([machineId, entries]) => {
+        if (!Array.isArray(history[machineId])) {
+          history[machineId] = [];
+        }
+
+        entries.forEach((entry) => {
+          const exists = history[machineId].some((item) => item.id === entry.id);
+
+          if (!exists && history[machineId].length < 30) {
+            history[machineId].push(entry);
+          }
+        });
+      });
+    }
+
     saveLocalHistory(history);
     return history;
   }
 
   async function fetchCloudPartSettings() {
-    const config = getSupabaseConfig();
-
-    if (!config.enabled) {
+    if (!isApiEnabled()) {
       return loadLocalPartSettings();
     }
 
-    const response = await fetch(
-      `${config.url}/rest/v1/part_settings?select=part_code,injection_time_seconds,note,updated_at,updated_by&order=part_code.asc`,
-      {
-        method: "GET",
-        headers: getHeaders()
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Supabase part settings load failed: ${response.status}`);
-    }
-
-    const rows = await response.json();
+    const rows = await apiRequest("/part-settings");
     const settings = {};
 
     rows.forEach((row) => {
@@ -332,32 +411,28 @@
       }
     });
 
+    if (hasPendingOperations("part_setting_upsert")) {
+      Object.assign(settings, loadLocalPartSettings());
+    }
+
     saveLocalPartSettings(settings);
     return settings;
   }
 
   async function upsertCloudPartSetting(partCode, setting) {
-    const config = getSupabaseConfig();
-
-    if (!config.enabled) {
-      return;
+    if (!isApiEnabled()) {
+      throw new Error("Render proxy unavailable");
     }
 
-    const response = await fetch(
-      `${config.url}/rest/v1/part_settings?on_conflict=part_code`,
-      {
-        method: "POST",
-        headers: getHeaders(true),
-        body: JSON.stringify([partSettingToRow(partCode, setting)])
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Supabase part settings save failed: ${response.status}`);
-    }
+    await apiRequest("/part-settings", {
+      method: "POST",
+      body: { row: partSettingToRow(partCode, setting) }
+    });
   }
 
   async function loadJobs(defaultJobs) {
+    await flushPendingSyncQueue();
+
     try {
       return await fetchCloudJobs(defaultJobs);
     } catch (error) {
@@ -371,10 +446,12 @@
 
     saveLocalJobs(jobs);
 
+    const rows = [jobToRow(machineId, jobs[machineId])];
+
     try {
-      await upsertCloudRows([jobToRow(machineId, jobs[machineId])]);
+      await upsertCloudRows(rows);
     } catch (error) {
-      // Fall back to local cache when cloud is unavailable.
+      enqueueSyncOperation({ type: "jobs_bulk", rows });
     }
 
     return jobs;
@@ -384,11 +461,12 @@
     const clonedJobs = cloneJobs(jobs);
     saveLocalJobs(clonedJobs);
 
+    const rows = Object.entries(clonedJobs).map(([machineId, job]) => jobToRow(machineId, job));
+
     try {
-      const rows = Object.entries(clonedJobs).map(([machineId, job]) => jobToRow(machineId, job));
       await upsertCloudRows(rows);
     } catch (error) {
-      // Fall back to local cache when cloud is unavailable.
+      enqueueSyncOperation({ type: "jobs_bulk", rows });
     }
 
     return clonedJobs;
@@ -400,15 +478,18 @@
 
   async function recordHistory(machineId, job) {
     appendLocalHistory(machineId, job);
+    const row = jobToHistoryRow(machineId, job);
 
     try {
-      await insertCloudHistory(machineId, job);
+      await apiRequest("/history", { method: "POST", body: { row } });
     } catch (error) {
-      // Keep local history when cloud history is unavailable.
+      enqueueSyncOperation({ type: "history_insert", row });
     }
   }
 
   async function loadHistory() {
+    await flushPendingSyncQueue();
+
     try {
       return await fetchCloudHistory();
     } catch (error) {
@@ -417,6 +498,8 @@
   }
 
   async function loadPartSettings() {
+    await flushPendingSyncQueue();
+
     try {
       return await fetchCloudPartSettings();
     } catch (error) {
@@ -440,17 +523,31 @@
     try {
       await upsertCloudPartSetting(partCode, nextSetting);
       nextSetting.syncStatus = "cloud";
+      await flushPendingSyncQueue();
     } catch (error) {
-      nextSetting.syncStatus = "local";
-      nextSetting.syncError = error.message || "Cloud sync unavailable";
+      nextSetting.syncStatus = "queued";
+      nextSetting.syncError = error.message || "Queued for later sync";
+      enqueueSyncOperation({
+        type: "part_setting_upsert",
+        key: partCode,
+        row: partSettingToRow(partCode, nextSetting)
+      });
     }
 
     return nextSetting;
   }
 
   function getModeLabel() {
-    return getSupabaseConfig().enabled ? "supabase" : "local";
+    return isApiEnabled() ? "render-proxy" : "local";
   }
+
+  function getPendingSyncCount() {
+    return loadPendingSyncQueue().length;
+  }
+
+  window.addEventListener("online", () => {
+    flushPendingSyncQueue();
+  });
 
   window.monitorDataService = {
     loadJobs,
@@ -461,6 +558,8 @@
     loadHistory,
     loadPartSettings,
     savePartSetting,
+    flushPendingSyncQueue,
+    getPendingSyncCount,
     getModeLabel
   };
 })();
