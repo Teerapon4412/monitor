@@ -27,19 +27,116 @@
     return new Promise((resolve, reject) => {
       const objectUrl = URL.createObjectURL(file);
       const image = new Image();
+      let revoked = false;
+
+      function cleanup() {
+        if (!revoked) {
+          URL.revokeObjectURL(objectUrl);
+          revoked = true;
+        }
+      }
 
       image.onload = () => {
-        URL.revokeObjectURL(objectUrl);
+        cleanup();
         resolve(image);
       };
 
       image.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error("Unable to load image"));
+        cleanup();
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const fallbackImage = new Image();
+          fallbackImage.onload = () => resolve(fallbackImage);
+          fallbackImage.onerror = () => reject(new Error("Unable to load image"));
+          fallbackImage.src = reader.result;
+        };
+        reader.onerror = () => reject(new Error("Unable to load image"));
+        reader.readAsDataURL(file);
       };
 
       image.src = objectUrl;
     });
+  }
+
+  function applyCanvasPreset(context, width, height, preset) {
+    const imageData = context.getImageData(0, 0, width, height);
+    const { data } = imageData;
+
+    for (let index = 0; index < data.length; index += 4) {
+      const red = data[index];
+      const green = data[index + 1];
+      const blue = data[index + 2];
+      const luminance = Math.round(red * 0.299 + green * 0.587 + blue * 0.114);
+
+      if (preset === "grayscale") {
+        data[index] = luminance;
+        data[index + 1] = luminance;
+        data[index + 2] = luminance;
+        continue;
+      }
+
+      if (preset === "threshold") {
+        const thresholdValue = luminance > 150 ? 255 : 0;
+        data[index] = thresholdValue;
+        data[index + 1] = thresholdValue;
+        data[index + 2] = thresholdValue;
+        continue;
+      }
+
+      if (preset === "contrast") {
+        const contrastValue = luminance > 170 ? 255 : luminance < 90 ? 0 : luminance;
+        data[index] = contrastValue;
+        data[index + 1] = contrastValue;
+        data[index + 2] = contrastValue;
+      }
+    }
+
+    context.putImageData(imageData, 0, 0);
+  }
+
+  function drawImageVariant(context, imageSource, options = {}) {
+    const {
+      rotationAngle = 0,
+      scale = 1,
+      crop = null,
+      preset = "original"
+    } = options;
+    const source = imageSource.source;
+    const cropX = crop ? Math.max(0, Math.round(source.width * crop.x)) : 0;
+    const cropY = crop ? Math.max(0, Math.round(source.height * crop.y)) : 0;
+    const cropWidth = crop ? Math.max(1, Math.round(source.width * crop.width)) : source.width;
+    const cropHeight = crop ? Math.max(1, Math.round(source.height * crop.height)) : source.height;
+    const scaledWidth = Math.max(240, Math.round(cropWidth * scale));
+    const scaledHeight = Math.max(240, Math.round(cropHeight * scale));
+    const isSideways = rotationAngle === 90 || rotationAngle === 270;
+    const width = isSideways ? scaledHeight : scaledWidth;
+    const height = isSideways ? scaledWidth : scaledHeight;
+
+    context.canvas.width = width;
+    context.canvas.height = height;
+    context.clearRect(0, 0, width, height);
+    context.save();
+    context.translate(width / 2, height / 2);
+    context.rotate((rotationAngle * Math.PI) / 180);
+    context.drawImage(
+      source,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
+      -scaledWidth / 2,
+      -scaledHeight / 2,
+      scaledWidth,
+      scaledHeight
+    );
+    context.restore();
+
+    if (preset !== "original") {
+      applyCanvasPreset(context, width, height, preset);
+    }
+
+    return { width, height };
   }
 
   async function getImageSource(file) {
@@ -104,41 +201,35 @@
       : [1, 0.8, 0.6, 0.4];
     const inversionModes = ["dontInvert", "attemptBoth", "onlyInvert"];
     const rotationAngles = [0, 90, 180, 270];
+    const cropCandidates = [
+      null,
+      { x: 0.2, y: 0.15, width: 0.6, height: 0.7 },
+      { x: 0.12, y: 0.12, width: 0.76, height: 0.76 }
+    ];
+    const presets = ["original", "grayscale", "contrast", "threshold"];
 
     for (const scale of scaleCandidates) {
-      const scaledWidth = Math.max(320, Math.round(sourceWidth * scale));
-      const scaledHeight = Math.max(320, Math.round(sourceHeight * scale));
-
       for (const rotationAngle of rotationAngles) {
-        const isSideways = rotationAngle === 90 || rotationAngle === 270;
-        const width = isSideways ? scaledHeight : scaledWidth;
-        const height = isSideways ? scaledWidth : scaledHeight;
+        for (const crop of cropCandidates) {
+          for (const preset of presets) {
+            const { width, height } = drawImageVariant(context, imageSource, {
+              rotationAngle,
+              scale,
+              crop,
+              preset
+            });
+            const imageData = context.getImageData(0, 0, width, height);
 
-        canvas.width = width;
-        canvas.height = height;
-        context.clearRect(0, 0, width, height);
-        context.save();
-        context.translate(width / 2, height / 2);
-        context.rotate((rotationAngle * Math.PI) / 180);
-        context.drawImage(
-          imageSource.source,
-          -scaledWidth / 2,
-          -scaledHeight / 2,
-          scaledWidth,
-          scaledHeight
-        );
-        context.restore();
+            for (const inversionAttempts of inversionModes) {
+              const result = window.jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts
+              });
 
-        const imageData = context.getImageData(0, 0, width, height);
-
-        for (const inversionAttempts of inversionModes) {
-          const result = window.jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts
-          });
-
-          if (result?.data?.trim()) {
-            imageSource.release();
-            return result.data.trim();
+              if (result?.data?.trim()) {
+                imageSource.release();
+                return result.data.trim();
+              }
+            }
           }
         }
       }
@@ -177,6 +268,14 @@
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     const rotationAngles = [0, 90, 270, 180];
+    const cropCandidates = [
+      null,
+      { x: 0.45, y: 0.02, width: 0.53, height: 0.34 },
+      { x: 0.3, y: 0.02, width: 0.68, height: 0.45 },
+      { x: 0.15, y: 0.08, width: 0.7, height: 0.84 }
+    ];
+    const presets = ["original", "grayscale", "contrast", "threshold"];
+    const scaleCandidates = [1, 0.8, 0.6];
 
     if (!context) {
       imageSource.release();
@@ -185,33 +284,27 @@
 
     try {
       for (const rotationAngle of rotationAngles) {
-        const isSideways = rotationAngle === 90 || rotationAngle === 270;
-        const width = isSideways ? imageSource.source.height : imageSource.source.width;
-        const height = isSideways ? imageSource.source.width : imageSource.source.height;
+        for (const crop of cropCandidates) {
+          for (const scale of scaleCandidates) {
+            for (const preset of presets) {
+              drawImageVariant(context, imageSource, {
+                rotationAngle,
+                crop,
+                scale,
+                preset
+              });
 
-        canvas.width = width;
-        canvas.height = height;
-        context.clearRect(0, 0, width, height);
-        context.save();
-        context.translate(width / 2, height / 2);
-        context.rotate((rotationAngle * Math.PI) / 180);
-        context.drawImage(
-          imageSource.source,
-          -imageSource.source.width / 2,
-          -imageSource.source.height / 2,
-          imageSource.source.width,
-          imageSource.source.height
-        );
-        context.restore();
+              const result = await window.Tesseract.recognize(canvas, "eng", {
+                logger: () => {},
+                workerBlobURL: false
+              });
+              const partCode = extractPartCodeFromText(result?.data?.text || "");
 
-        const result = await window.Tesseract.recognize(canvas, "eng", {
-          logger: () => {},
-          workerBlobURL: false
-        });
-        const partCode = extractPartCodeFromText(result?.data?.text || "");
-
-        if (partCode) {
-          return partCode;
+              if (partCode) {
+                return partCode;
+              }
+            }
+          }
         }
       }
     } finally {
