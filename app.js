@@ -53,11 +53,8 @@ const inspectorSummary = document.getElementById("inspectorSummary");
 const inspectorArea = document.getElementById("inspectorArea");
 const inspectorOperator = document.getElementById("inspectorOperator");
 const inspectorCycle = document.getElementById("inspectorCycle");
-const inspectorOee = document.getElementById("inspectorOee");
-const inspectorOutput = document.getElementById("inspectorOutput");
 const inspectorPartCode = document.getElementById("inspectorPartCode");
 const inspectorPartName = document.getElementById("inspectorPartName");
-const inspectorQrValue = document.getElementById("inspectorQrValue");
 const inspectorService = document.getElementById("inspectorService");
 const statusHistoryList = document.getElementById("statusHistoryList");
 const historyCountBadge = document.getElementById("historyCountBadge");
@@ -414,11 +411,8 @@ function setSelectedMachine(machineId) {
     inspectorArea.textContent = "--";
     inspectorOperator.textContent = "--";
     inspectorCycle.textContent = "--";
-    inspectorOee.textContent = "--";
-    inspectorOutput.textContent = "--";
     inspectorPartCode.textContent = "--";
     inspectorPartName.textContent = "--";
-    inspectorQrValue.textContent = "--";
     inspectorService.textContent = "--";
     focusStrip.innerHTML = "";
     renderStatusHistory();
@@ -440,11 +434,8 @@ function setSelectedMachine(machineId) {
   inspectorArea.textContent = getMachineArea(machine);
   inspectorOperator.textContent = getMachineOperator(machine);
   inspectorCycle.textContent = `${machine.cycle} วินาที`;
-  inspectorOee.textContent = `${machine.oee}%`;
-  inspectorOutput.textContent = `${machine.output.toLocaleString()} ชิ้น`;
   inspectorPartCode.textContent = currentPartCode || currentPart?.entityCode || "ไม่ทราบ";
   inspectorPartName.textContent = currentPart?.entityName || "ไม่พบข้อมูลใน QR Mapping";
-  inspectorQrValue.textContent = currentQr || "--";
   inspectorService.textContent = machineJob?.updatedAt ? formatLastScan(machineJob.updatedAt) : formatRelativeService(machine.service);
 
   document.querySelectorAll(".machine-node").forEach((node) => {
