@@ -676,6 +676,26 @@ function applyPartCodeFallback(rawValue) {
   return true;
 }
 
+function resetScanEntryFields() {
+  qrInput.value = "";
+  detailInput.value = "";
+  scannerLastSubmittedValue = "";
+  currentPartCandidates = [];
+  statusTimeInput.value = toDateTimeLocalValue();
+
+  if (partCodeFallbackInput) {
+    partCodeFallbackInput.value = "";
+  }
+
+  renderPartSelection("");
+  renderScanReadout("");
+  resetPhotoPreview();
+
+  if (partCodeFallbackHint) {
+    partCodeFallbackHint.textContent = "ถ้าถ่ายรูป QR ไม่สำเร็จ ให้ดูรหัส Part จากข้อความบนป้ายแล้วพิมพ์ที่นี่ ระบบจะค้นชื่อชิ้นงานจาก Master Data ให้ทันที";
+  }
+}
+
 function isTouchLikeDevice() {
   return window.matchMedia("(pointer: coarse)").matches || window.matchMedia("(hover: none)").matches;
 }
@@ -938,15 +958,12 @@ scanForm.addEventListener("submit", async (event) => {
   await loadIncidents();
   renderJobList();
   syncIncidentHints();
-  scannerLastSubmittedValue = "";
   showResult(
     `บันทึก ${machineId} เรียบร้อย`,
     `${machineId} ในพื้นที่ ${area} กำลังผลิต ${selectedPart.entityCode} - ${selectedPart.entityName} จาก QR ${lookup.qrValue}${incidentMessage ? ` | ${incidentMessage}` : ""}`
   );
-  qrInput.value = lookup.parsed.partCode || lookup.qrValue;
-  renderScanReadout(lookup.qrValue, selectedPart);
+  resetScanEntryFields();
   setCameraState("บันทึกสำเร็จ", `บันทึก ${selectedPart.entityCode} ให้ ${machineId} แล้ว พร้อมสแกนรายการถัดไป`);
-  statusTimeInput.value = toDateTimeLocalValue(statusTimeIso);
   focusQrInput(true);
 });
 
