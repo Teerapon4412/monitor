@@ -105,6 +105,39 @@
     return null;
   }
 
+  function extractPartCodeFromText(text) {
+    if (!text) {
+      return null;
+    }
+
+    const normalizedText = text
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(/[|]/g, "I");
+    const partCodeMatches = normalizedText.match(/[A-Z]{1,4}\d{6,}/g);
+
+    if (!partCodeMatches?.length) {
+      return null;
+    }
+
+    return partCodeMatches
+      .sort((left, right) => right.length - left.length)[0]
+      .trim();
+  }
+
+  async function decodePartCodeWithOcr(file) {
+    if (!window.Tesseract?.recognize) {
+      return null;
+    }
+
+    const result = await window.Tesseract.recognize(file, "eng", {
+      logger: () => {},
+      workerBlobURL: false
+    });
+
+    return extractPartCodeFromText(result?.data?.text || "");
+  }
+
   async function decodeQrFromImageFile(file) {
     const barcodeDetectorResult = await decodeWithBarcodeDetector(file);
 
@@ -124,9 +157,18 @@
       };
     }
 
+    const ocrPartCode = await decodePartCodeWithOcr(file);
+
+    if (ocrPartCode) {
+      return {
+        value: ocrPartCode,
+        source: "OCR"
+      };
+    }
+
     return {
       value: null,
-      source: typeof window.jsQR === "function" ? "jsQR" : "unavailable"
+      source: window.Tesseract?.recognize ? "OCR" : (typeof window.jsQR === "function" ? "jsQR" : "unavailable")
     };
   }
 
