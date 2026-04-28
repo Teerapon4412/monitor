@@ -486,18 +486,44 @@ function getFilteredMachineHistory(machineId) {
   return getMachineHistory(machineId).filter(isHistoryEntryInDateRange);
 }
 
-function renderStatusHistory(machineId) {
+function getAllFilteredHistory() {
+  const allEntries = machines.flatMap((machine) =>
+    getMachineHistory(machine.id).map((entry) => ({
+      ...entry,
+      machineId: entry.machineId || machine.id
+    }))
+  );
+  const uniqueEntries = [];
+  const seenKeys = new Set();
+
+  allEntries.forEach((entry) => {
+    const key = entry.id || `${entry.machineId}-${entry.updatedAt}-${entry.qrValue || entry.directValue || ""}-${entry.status || ""}`;
+
+    if (seenKeys.has(key)) {
+      return;
+    }
+
+    seenKeys.add(key);
+    uniqueEntries.push(entry);
+  });
+
+  return uniqueEntries
+    .filter(isHistoryEntryInDateRange)
+    .sort((left, right) => new Date(right.updatedAt || 0).getTime() - new Date(left.updatedAt || 0).getTime());
+}
+
+function renderStatusHistory() {
   if (!statusHistoryList || !historyCountBadge) {
     return;
   }
 
-  if (!machineId) {
+  if (false) {
     historyCountBadge.textContent = "-- รายการ";
     statusHistoryList.innerHTML = `<p class="history-empty">เลือกเครื่องจากผังเพื่อดูประวัติอัปเดตสถานะ</p>`;
     return;
   }
 
-  const history = getFilteredMachineHistory(machineId).slice(0, 50);
+  const history = getAllFilteredHistory().slice(0, 100);
   historyCountBadge.textContent = `${history.length} รายการ`;
 
   if (history.length === 0) {
@@ -515,7 +541,7 @@ function renderStatusHistory(machineId) {
       <div class="history-marker"></div>
       <div class="history-body">
         <div class="history-topline">
-          <strong>${statusLabel[entryStatus] || entryStatus}</strong>
+          <strong>${entry.machineId || "--"} • ${statusLabel[entryStatus] || entryStatus}</strong>
           <span>${formatLastScan(entry.updatedAt)}</span>
         </div>
         <p>${entry.detail || "ไม่มี Detail"}</p>
@@ -542,8 +568,7 @@ function escapeCsvValue(value) {
 }
 
 function exportSelectedMachineHistory() {
-  const machineId = selectedMachineId;
-  const history = getFilteredMachineHistory(machineId);
+  const history = getAllFilteredHistory();
 
   if (history.length === 0) {
     return;
@@ -551,7 +576,7 @@ function exportSelectedMachineHistory() {
 
   const headers = ["เครื่อง", "สถานะ", "เวลา Status", "ผู้สแกน / สถานี", "พื้นที่", "รหัสชิ้นงาน", "ชื่อชิ้นงาน", "QR", "Detail"];
   const rows = history.map((entry) => [
-    machineId,
+    entry.machineId || "",
     statusLabel[entry.status] || entry.status || "",
     entry.updatedAt || "",
     entry.scannedBy || "",
@@ -567,7 +592,7 @@ function exportSelectedMachineHistory() {
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = `${machineId.replace(/\s+/g, "-")}-status-history.csv`;
+  link.download = `all-machine-status-history.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -695,14 +720,14 @@ async function initializeDashboard() {
 
   [historyFromDate, historyToDate].forEach((input) => {
     input?.addEventListener("change", () => {
-      renderStatusHistory(selectedMachineId);
+      renderStatusHistory();
     });
   });
 
   clearHistoryFilterButton?.addEventListener("click", () => {
     historyFromDate.value = "";
     historyToDate.value = "";
-    renderStatusHistory(selectedMachineId);
+    renderStatusHistory();
   });
 
   exportHistoryButton?.addEventListener("click", exportSelectedMachineHistory);
