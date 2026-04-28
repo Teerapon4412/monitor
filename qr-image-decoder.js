@@ -1,4 +1,28 @@
 (function () {
+  async function normalizeImageFile(file) {
+    const fileName = file?.name || "";
+    const fileType = (file?.type || "").toLowerCase();
+    const isHeicLike = fileType.includes("heic") || fileType.includes("heif") || /\.(heic|heif)$/i.test(fileName);
+
+    if (!isHeicLike || typeof window.heic2any !== "function") {
+      return file;
+    }
+
+    const convertedBlob = await window.heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality: 0.92
+    });
+
+    const outputBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+
+    return new File(
+      [outputBlob],
+      fileName.replace(/\.(heic|heif)$/i, ".jpg") || "converted-from-heic.jpg",
+      { type: "image/jpeg" }
+    );
+  }
+
   function loadImageElement(file) {
     return new Promise((resolve, reject) => {
       const objectUrl = URL.createObjectURL(file);
@@ -19,9 +43,11 @@
   }
 
   async function getImageSource(file) {
+    const normalizedFile = await normalizeImageFile(file);
+
     if (typeof createImageBitmap === "function") {
       try {
-        const imageBitmap = await createImageBitmap(file);
+        const imageBitmap = await createImageBitmap(normalizedFile);
         return {
           source: imageBitmap,
           release() {
@@ -33,7 +59,7 @@
       }
     }
 
-    const image = await loadImageElement(file);
+    const image = await loadImageElement(normalizedFile);
     return {
       source: image,
       release() {}

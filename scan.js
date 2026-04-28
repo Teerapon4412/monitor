@@ -681,7 +681,13 @@ async function scanPhotoFile(file) {
     setCameraState("พบ QR แล้ว", `อ่านค่า ${qrValue} จากรูปแล้วด้วย ${decodedResult.source} กำลังบันทึกให้อัตโนมัติ`);
     submitScan();
   } catch (error) {
-    setCameraState("เปิดรูปไม่ได้", "ไม่สามารถอ่านรูปนี้ได้ กรุณาลองถ่ายใหม่หรือเลือกไฟล์รูปอื่น");
+    const isHeicLike = /heic|heif/i.test(file?.type || "") || /\.(heic|heif)$/i.test(file?.name || "");
+    setCameraState(
+      "เปิดรูปไม่ได้",
+      isHeicLike
+        ? "ไม่สามารถเปิดรูป HEIC นี้ได้ กรุณาลองถ่ายใหม่ หรือปรับ iPhone เป็น Most Compatible"
+        : "ไม่สามารถอ่านรูปนี้ได้ กรุณาลองถ่ายใหม่หรือเลือกไฟล์รูปอื่น"
+    );
   }
 }
 

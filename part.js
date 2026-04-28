@@ -177,7 +177,10 @@ async function scanPhotoFile(file) {
     partQrStatus.classList.remove("warning-text");
     handlePartQrScan(qrValue);
   } catch (error) {
-    partQrStatus.textContent = "อ่านรูป QR ไม่สำเร็จ กรุณาลองถ่ายใหม่หรือยิง Scanner แทน";
+    const isHeicLike = /heic|heif/i.test(file?.type || "") || /\.(heic|heif)$/i.test(file?.name || "");
+    partQrStatus.textContent = isHeicLike
+      ? "ไม่สามารถเปิดรูป HEIC นี้ได้ กรุณาลองถ่ายใหม่ หรือปรับ iPhone เป็น Most Compatible"
+      : "อ่านรูป QR ไม่สำเร็จ กรุณาลองถ่ายใหม่หรือยิง Scanner แทน";
     partQrStatus.classList.add("warning-text");
   }
 }
