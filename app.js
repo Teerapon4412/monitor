@@ -157,6 +157,19 @@ function getActiveIncident(machineId) {
   return getMachineIncidents(machineId).find((incident) => incident.active) || null;
 }
 
+function getMachineAlertHistory(machineId) {
+  const incidentEntries = getMachineIncidents(machineId).filter((incident) => incident.openStatus && incident.issueDetail);
+  const fallbackIncident = getFallbackIncidentFromJob(getMachine(machineId));
+
+  if (!fallbackIncident) {
+    return incidentEntries;
+  }
+
+  const exists = incidentEntries.some((incident) => incident.id === fallbackIncident.id || incident.openedAt === fallbackIncident.openedAt);
+
+  return exists ? incidentEntries : [fallbackIncident, ...incidentEntries];
+}
+
 function getMachine(machineId) {
   return machines.find((machine) => machine.id === machineId);
 }
@@ -439,6 +452,7 @@ function setSelectedMachine(machineId) {
   });
 
   renderFocusStrip();
+  renderSelectedMachineAlertHistory(machine.id);
   renderStatusHistory();
 }
 
@@ -699,40 +713,10 @@ function exportSelectedMachineHistory() {
 }
 
 function renderMachines() {
-  machineList.innerHTML = "";
   plantMap.innerHTML = "";
 
   machines.forEach((machine) => {
     const machineStatus = getMachineStatus(machine);
-    const card = document.createElement("article");
-    card.className = "machine-card";
-    card.innerHTML = `
-      <header>
-        <div>
-          <h3>${machine.id}</h3>
-          <div class="machine-meta">${getMachineArea(machine)} ไลน์</div>
-        </div>
-        <span class="badge status-${machineStatus}">${statusLabel[machineStatus]}</span>
-      </header>
-      <div class="machine-values">
-        <span>ชิ้นงานปัจจุบัน</span>
-        <strong>${getMachinePartCode(machine) || getCurrentPart(machine)?.entityCode || "ไม่ทราบ"}</strong>
-      </div>
-      <div class="machine-values">
-        <span>Detail</span>
-        <strong>${getMachineJob(machine.id)?.detail || "-"}</strong>
-      </div>
-      <div class="machine-values">
-        <span>QR ล่าสุด</span>
-        <strong>${getMachineQrValue(machine) || "--"}</strong>
-      </div>
-      <div class="machine-values">
-        <span>ผลผลิต</span>
-        <strong>${machine.output.toLocaleString()} ชิ้น</strong>
-      </div>
-    `;
-    machineList.appendChild(card);
-
     const node = document.createElement("button");
     node.type = "button";
     node.className = `machine-node status-${machineStatus}`;
@@ -748,6 +732,73 @@ function renderMachines() {
       setSelectedMachine(machine.id);
     });
     plantMap.appendChild(node);
+  });
+}
+
+function renderSelectedMachineAlertHistory(machineId) {
+  if (!machineList) {
+    return;
+  }
+
+  const machine = getMachine(machineId) || getFallbackMachine();
+
+  if (!machine) {
+    machineList.innerHTML = `<p class="machine-list-empty">ยังไม่มีข้อมูลเครื่องที่เลือก</p>`;
+    return;
+  }
+
+  const incidents = getMachineAlertHistory(machine.id);
+
+  if (incidents.length === 0) {
+    machineList.innerHTML = `<p class="machine-list-empty">${machine.id} ยังไม่มีประวัติการแจ้งเตือน</p>`;
+    return;
+  }
+
+  machineList.innerHTML = "";
+  incidents.forEach((incident) => {
+    const status = incident.openStatus || "warning";
+    const article = document.createElement("article");
+    const durationLabel = getIncidentDurationLabel(incident);
+    const closedLabel = incident.closedAt ? formatLastScan(incident.closedAt) : "กำลังดำเนินการ";
+    article.className = "machine-card machine-alert-card";
+    article.innerHTML = `
+      <header>
+        <div>
+          <h3>${machine.id}</h3>
+          <div class="machine-meta">${getMachineArea(machine)} ไลน์</div>
+        </div>
+        <span class="badge status-${status}">${incident.active ? "เปิดเหตุอยู่" : "ปิดเหตุแล้ว"}</span>
+      </header>
+      <div class="machine-values">
+        <span>สถานะที่แจ้ง</span>
+        <strong>${statusLabel[status] || status}</strong>
+      </div>
+      <div class="machine-values">
+        <span>เริ่มแจ้ง</span>
+        <strong>${formatLastScan(incident.openedAt || incident.updatedAt)}</strong>
+      </div>
+      <div class="machine-values">
+        <span>ปิดเหตุ</span>
+        <strong>${closedLabel}</strong>
+      </div>
+      <div class="machine-values">
+        <span>ใช้เวลา</span>
+        <strong>${durationLabel}</strong>
+      </div>
+      <div class="machine-values">
+        <span>อาการที่แจ้ง</span>
+        <strong>${incident.issueDetail || "-"}</strong>
+      </div>
+      <div class="machine-values">
+        <span>การแก้ไข</span>
+        <strong>${incident.resolutionDetail || "-"}</strong>
+      </div>
+      <div class="machine-values">
+        <span>ผู้แจ้ง / ผู้ปิด</span>
+        <strong>${incident.active ? (incident.openedBy || "--") : `${incident.openedBy || "--"} / ${incident.closedBy || "--"}`}</strong>
+      </div>
+    `;
+    machineList.appendChild(article);
   });
 }
 

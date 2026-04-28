@@ -631,6 +631,18 @@ h2 {
   margin: 0 0 4px;
 }
 
+.machine-alert-card {
+  border-left: 4px solid rgba(92, 225, 230, 0.2);
+}
+
+.machine-list-empty {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+}
+
 .scan-shell {
   grid-template-columns: 1fr;
 }
