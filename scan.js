@@ -46,7 +46,6 @@ const defaultJobs = window.currentMachineJobsData?.jobs || {};
 const machineIds = Object.keys(defaultJobs);
 const activeEmployees = Array.isArray(window.employeesData?.employees) ? window.employeesData.employees : [];
 let isSubmittingScan = false;
-let barcodeDetector;
 let currentPartCandidates = [];
 let jobsState = cloneJobs(defaultJobs);
 let previewObjectUrl = "";
@@ -652,12 +651,10 @@ async function scanPhotoFile(file) {
     return;
   }
 
-  if (!("BarcodeDetector" in window)) {
-    setCameraState("ไม่รองรับ", "เบราว์เซอร์นี้ยังไม่รองรับการอ่าน QR จากรูป กรุณาพิมพ์หรือใช้เบราว์เซอร์รุ่นใหม่");
+  if (!window.monitorQrImageDecoder?.decodeQrFromImageFile) {
+    setCameraState("ไม่รองรับ", "เบราว์เซอร์นี้ยังไม่รองรับการอ่าน QR จากรูป กรุณาพิมพ์หรือใช้เครื่องสแกนแทน");
     return;
   }
-
-  barcodeDetector = new window.BarcodeDetector({ formats: ["qr_code"] });
 
   try {
     resetPhotoPreview();
@@ -665,16 +662,14 @@ async function scanPhotoFile(file) {
     cameraPreview.src = previewObjectUrl;
     setCameraState("กำลังอ่านรูป", "ระบบกำลังถอดรหัส QR จากรูปที่เลือก");
 
-    const imageBitmap = await createImageBitmap(file);
-    const barcodes = await barcodeDetector.detect(imageBitmap);
-    imageBitmap.close();
+    const decodedResult = await window.monitorQrImageDecoder.decodeQrFromImageFile(file);
 
-    if (!barcodes.length) {
+    if (!decodedResult?.value) {
       setCameraState("ไม่พบ QR", "ระบบเปิดรูปได้ แต่ยังไม่พบ QR ในภาพนี้ ลองถ่ายให้ชัดขึ้นหรือขยับใกล้อีกนิด");
       return;
     }
 
-    const qrValue = barcodes[0].rawValue?.trim();
+    const qrValue = decodedResult.value;
 
     if (!qrValue) {
       setCameraState("อ่านไม่สำเร็จ", "พบ QR ในรูป แต่ยังอ่านค่าไม่ได้");
@@ -683,7 +678,7 @@ async function scanPhotoFile(file) {
 
     qrInput.value = qrValue;
     const lookup = updateQrPreview(qrValue, "รูป QR");
-    setCameraState("พบ QR แล้ว", `อ่านค่า ${qrValue} จากรูปแล้ว กำลังบันทึกให้อัตโนมัติ`);
+    setCameraState("พบ QR แล้ว", `อ่านค่า ${qrValue} จากรูปแล้วด้วย ${decodedResult.source} กำลังบันทึกให้อัตโนมัติ`);
     submitScan();
   } catch (error) {
     setCameraState("เปิดรูปไม่ได้", "ไม่สามารถอ่านรูปนี้ได้ กรุณาลองถ่ายใหม่หรือเลือกไฟล์รูปอื่น");
