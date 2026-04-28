@@ -87,6 +87,7 @@ const catalogLookup = new Map(
 const defaultMachineJobs = window.currentMachineJobsData?.jobs || {};
 let machineJobsState = { ...defaultMachineJobs };
 let machineHistoryState = {};
+let machineIncidentsState = [];
 
 function normalizeArea(areaValue, fallbackArea) {
   if (areaValue === "Injection F1" || areaValue === "Injection" || areaValue === "Assembly") {
@@ -114,6 +115,11 @@ async function loadMachineHistory() {
   return machineHistoryState;
 }
 
+async function loadMachineIncidents() {
+  machineIncidentsState = await dataService.loadIncidents();
+  return machineIncidentsState;
+}
+
 function getMachineJob(machineId) {
   return machineJobsState[machineId] || null;
 }
@@ -139,6 +145,16 @@ function getMachineStatus(machine) {
 
 function getMachineOperator(machine) {
   return getMachineJob(machine.id)?.scannedBy || machine.operator;
+}
+
+function getMachineIncidents(machineId) {
+  return machineIncidentsState
+    .filter((incident) => incident.machineId === machineId)
+    .sort((left, right) => new Date(right.updatedAt || right.openedAt || 0).getTime() - new Date(left.updatedAt || left.openedAt || 0).getTime());
+}
+
+function getActiveIncident(machineId) {
+  return getMachineIncidents(machineId).find((incident) => incident.active) || null;
 }
 
 function getMachine(machineId) {
@@ -223,6 +239,72 @@ function formatLastScan(isoString) {
   });
 }
 
+function formatDurationMinutes(totalMinutes) {
+  if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
+    return "--";
+  }
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes} นาที`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes > 0 ? `${hours} ชม. ${minutes} นาที` : `${hours} ชม.`;
+}
+
+function getIncidentDurationMinutes(incident) {
+  const openedAt = new Date(incident.openedAt || incident.updatedAt || 0).getTime();
+  const closedAt = new Date(incident.closedAt || Date.now()).getTime();
+
+  if (Number.isNaN(openedAt) || Number.isNaN(closedAt) || closedAt < openedAt) {
+    return null;
+  }
+
+  return Math.max(0, Math.round((closedAt - openedAt) / 60000));
+}
+
+function getIncidentDurationLabel(incident) {
+  const totalMinutes = getIncidentDurationMinutes(incident);
+  return formatDurationMinutes(totalMinutes);
+}
+
+function getFallbackIncidentFromJob(machine) {
+  const job = getMachineJob(machine.id);
+  const status = getMachineStatus(machine);
+  const level = getAlertLevelFromStatus(status);
+
+  if (!job || !level || !job.detail) {
+    return null;
+  }
+
+  if (getActiveIncident(machine.id)) {
+    return null;
+  }
+
+  return {
+    id: `${machine.id}-job-fallback`,
+    machineId: machine.id,
+    area: getMachineArea(machine),
+    directValue: job.directValue || "",
+    partCode: job.partCode || "",
+    partName: job.partName || "",
+    entityType: job.entityType || "PART",
+    qrValue: job.qrValue || "",
+    openStatus: status,
+    closeStatus: "",
+    issueDetail: job.detail || "",
+    resolutionDetail: "",
+    openedAt: job.updatedAt || "",
+    closedAt: "",
+    openedBy: job.scannedBy || "",
+    closedBy: "",
+    active: status !== "running",
+    createdAt: job.updatedAt || "",
+    updatedAt: job.updatedAt || ""
+  };
+}
+
 function getAlertTimestampLabel(alert) {
   if (alert.occurredAt) {
     return formatLastScan(alert.occurredAt);
@@ -270,12 +352,11 @@ function getMinutesAgo(isoString) {
 function getLiveAlerts() {
   return machines
     .map((machine) => {
-      const machineJob = getMachineJob(machine.id);
-      const status = getMachineStatus(machine);
-      const level = getAlertLevelFromStatus(status);
-      const detail = machineJob?.detail?.trim();
+      const incident = getActiveIncident(machine.id) || getFallbackIncidentFromJob(machine);
+      const level = getAlertLevelFromStatus(incident?.openStatus);
+      const detail = incident?.issueDetail?.trim();
 
-      if (!level || !detail) {
+      if (!incident || !level || !detail) {
         return null;
       }
 
@@ -283,8 +364,8 @@ function getLiveAlerts() {
         machine: machine.id,
         detail,
         level,
-        minutesAgo: getMinutesAgo(machineJob?.updatedAt),
-        occurredAt: machineJob?.updatedAt || null
+        minutesAgo: getMinutesAgo(incident.openedAt),
+        occurredAt: incident.openedAt || null
       };
     })
     .filter(Boolean);
@@ -368,6 +449,15 @@ function renderSummary() {
   const cycleMachines = machines.filter((machine) => machine.cycle > 0);
   const activeMachines = machines.filter((machine) => getMachineStatus(machine) !== "down");
   const liveAlerts = getLiveAlerts();
+  const activeDowntimeMinutes = machines.reduce((sum, machine) => {
+    const incident = getActiveIncident(machine.id) || getFallbackIncidentFromJob(machine);
+
+    if (!incident || incident.openStatus !== "down") {
+      return sum;
+    }
+
+    return sum + (getIncidentDurationMinutes(incident) || 0);
+  }, 0);
   const avgCycle = Math.round(cycleMachines.reduce((sum, machine) => sum + machine.cycle, 0) / cycleMachines.length);
   const avgOee = activeMachines.length
     ? activeMachines.reduce((sum, machine) => sum + machine.oee, 0) / activeMachines.length
@@ -383,7 +473,7 @@ function renderSummary() {
   onlineSubtext.textContent = `${warning + down} เครื่องต้องติดตาม`;
   averageCycle.textContent = `${avgCycle} วินาที`;
   cycleDelta.textContent = "-4 วินาที เทียบกับกะก่อนหน้า";
-  downtimeValue.textContent = `${down * 19} นาที`;
+  downtimeValue.textContent = formatDurationMinutes(activeDowntimeMinutes);
   downtimeCause.textContent = critical ? `สาเหตุหลัก: ${critical.detail}` : "ไม่มีการหยุดเครื่องระดับวิกฤต";
 }
 
@@ -487,17 +577,18 @@ function getFilteredMachineHistory(machineId) {
 }
 
 function getAllFilteredHistory() {
-  const allEntries = machines.flatMap((machine) =>
-    getMachineHistory(machine.id).map((entry) => ({
-      ...entry,
-      machineId: entry.machineId || machine.id
-    }))
-  );
+  const allEntries = [
+    ...machineIncidentsState,
+    ...machines.map((machine) => getFallbackIncidentFromJob(machine)).filter(Boolean)
+  ].map((entry) => ({
+    ...entry,
+    machineId: entry.machineId || ""
+  }));
   const uniqueEntries = [];
   const seenKeys = new Set();
 
   allEntries.forEach((entry) => {
-    const key = entry.id || `${entry.machineId}-${entry.updatedAt}-${entry.qrValue || entry.directValue || ""}-${entry.status || ""}`;
+    const key = entry.id || `${entry.machineId}-${entry.openedAt || entry.updatedAt}-${entry.qrValue || entry.directValue || ""}-${entry.openStatus || ""}`;
 
     if (seenKeys.has(key)) {
       return;
@@ -508,8 +599,8 @@ function getAllFilteredHistory() {
   });
 
   return uniqueEntries
-    .filter(isHistoryEntryInDateRange)
-    .sort((left, right) => new Date(right.updatedAt || 0).getTime() - new Date(left.updatedAt || 0).getTime());
+    .filter((entry) => isHistoryEntryInDateRange({ updatedAt: entry.openedAt || entry.updatedAt }))
+    .sort((left, right) => new Date(right.updatedAt || right.openedAt || 0).getTime() - new Date(left.updatedAt || left.openedAt || 0).getTime());
 }
 
 function renderStatusHistory() {
@@ -517,40 +608,42 @@ function renderStatusHistory() {
     return;
   }
 
-  const machineId = "ทุกเครื่อง";
-
-  if (false) {
-    historyCountBadge.textContent = "-- รายการ";
-    statusHistoryList.innerHTML = `<p class="history-empty">เลือกเครื่องจากผังเพื่อดูประวัติอัปเดตสถานะ</p>`;
-    return;
-  }
-
   const history = getAllFilteredHistory().slice(0, 100);
   historyCountBadge.textContent = `${history.length} รายการ`;
 
   if (history.length === 0) {
-    statusHistoryList.innerHTML = `<p class="history-empty">ยังไม่มีประวัติอัปเดตสถานะของ ${machineId}</p>`;
+    statusHistoryList.innerHTML = `<p class="history-empty">ยังไม่มีประวัติแจ้งสถานะเครื่อง</p>`;
     return;
   }
 
   statusHistoryList.innerHTML = "";
   history.forEach((entry) => {
     const item = document.createElement("article");
-    const entryStatus = entry.status || "running";
+    const entryStatus = entry.openStatus || entry.status || "running";
     const partName = resolveHistoryPartName(entry);
+    const openedLabel = formatLastScan(entry.openedAt || entry.updatedAt);
+    const closedLabel = entry.closedAt ? formatLastScan(entry.closedAt) : "กำลังดำเนินการ";
+    const durationLabel = getIncidentDurationLabel(entry);
+    const ownerLabel = entry.active ? (entry.openedBy || entry.scannedBy || "--") : `${entry.openedBy || entry.scannedBy || "--"} / ${entry.closedBy || "--"}`;
     item.className = `history-card history-${entryStatus}`;
     item.innerHTML = `
       <div class="history-marker"></div>
       <div class="history-body">
         <div class="history-topline">
-          <strong>${entry.machineId || "--"} • ${statusLabel[entryStatus] || entryStatus}</strong>
-          <span>${formatLastScan(entry.updatedAt)}</span>
+          <strong>${entry.machineId || "--"} - ${statusLabel[entryStatus] || entryStatus}</strong>
+          <span>${entry.active ? "เปิดเหตุอยู่" : "ปิดเหตุแล้ว"}</span>
         </div>
-        <p>${entry.detail || "ไม่มี Detail"}</p>
+        <p>${entry.issueDetail || entry.detail || "ไม่มี Detail"}</p>
+        ${entry.resolutionDetail ? `<p class="history-resolution">การแก้ไข: ${entry.resolutionDetail}</p>` : ""}
+        <div class="history-timeline">
+          <span>เริ่ม ${openedLabel}</span>
+          <span>จบ ${closedLabel}</span>
+          <span>ใช้เวลา ${durationLabel}</span>
+        </div>
         <div class="history-meta">
-          <span>${entry.scannedBy || "--"}</span>
+          <span>${ownerLabel}</span>
           <span>${entry.partCode || entry.qrValue || "--"}</span>
-          <span>${partName || "ไม่พบชื่อชิ้นงาน"}</span>
+          <span class="history-part-name">${partName || "ไม่พบชื่อชิ้นงาน"}</span>
           <span>${entry.area || "--"}</span>
         </div>
       </div>
@@ -576,17 +669,21 @@ function exportSelectedMachineHistory() {
     return;
   }
 
-  const headers = ["เครื่อง", "สถานะ", "เวลา Status", "ผู้สแกน / สถานี", "พื้นที่", "รหัสชิ้นงาน", "ชื่อชิ้นงาน", "QR", "Detail"];
+  const headers = ["เครื่อง", "สถานะเปิดเหตุ", "เวลาเริ่มเหตุ", "เวลาปิดเหตุ", "ระยะเวลา", "ผู้เปิด / ผู้ปิด", "พื้นที่", "รหัสชิ้นงาน", "ชื่อชิ้นงาน", "QR", "อาการที่พบ", "การแก้ไข", "สถานะเหตุ"];
   const rows = history.map((entry) => [
     entry.machineId || "",
-    statusLabel[entry.status] || entry.status || "",
-    entry.updatedAt || "",
-    entry.scannedBy || "",
+    statusLabel[entry.openStatus] || entry.openStatus || statusLabel[entry.status] || entry.status || "",
+    entry.openedAt || entry.updatedAt || "",
+    entry.closedAt || "",
+    getIncidentDurationLabel(entry),
+    entry.active ? (entry.openedBy || entry.scannedBy || "") : `${entry.openedBy || entry.scannedBy || ""} / ${entry.closedBy || ""}`,
     entry.area || "",
     entry.partCode || "",
     resolveHistoryPartName(entry),
     entry.qrValue || entry.directValue || "",
-    entry.detail || ""
+    entry.issueDetail || entry.detail || "",
+    entry.resolutionDetail || "",
+    entry.active ? "เปิดเหตุอยู่" : "ปิดเหตุแล้ว"
   ]);
   const csv = [headers, ...rows].map((row) => row.map(escapeCsvValue).join(",")).join("\r\n");
   const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
@@ -709,6 +806,7 @@ function setTimestamp() {
 async function refreshDashboard() {
   await loadMachineJobs();
   await loadMachineHistory();
+  await loadMachineIncidents();
   renderMachines();
   renderAlerts();
   renderSummary();

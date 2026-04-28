@@ -579,8 +579,17 @@ h2 {
   gap: 8px 12px;
 }
 
+.history-timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .history-topline span,
 .history-meta,
+.history-timeline,
 .history-empty {
   color: var(--muted);
 }
@@ -589,11 +598,16 @@ h2 {
   line-height: 1.45;
 }
 
+.history-resolution {
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
 .history-meta {
   font-size: 0.82rem;
 }
 
-.history-meta span:nth-child(3) {
+.history-part-name {
   flex-basis: 100%;
   color: var(--text);
   font-weight: 700;

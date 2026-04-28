@@ -31,6 +31,28 @@ create table if not exists public.machine_job_history (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.machine_incidents (
+  id text primary key,
+  machine_id text not null,
+  area text not null default '',
+  direct_value text not null default '',
+  part_code text not null default '',
+  part_name text not null default '',
+  entity_type text not null default 'PART',
+  qr_value text not null default '',
+  open_status text not null default '',
+  close_status text not null default '',
+  issue_detail text not null default '',
+  resolution_detail text not null default '',
+  opened_at timestamptz not null default now(),
+  closed_at timestamptz,
+  opened_by text not null default '',
+  closed_by text not null default '',
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.part_settings (
   part_code text primary key,
   injection_time_seconds numeric not null default 0,
@@ -41,6 +63,7 @@ create table if not exists public.part_settings (
 
 alter table public.machine_jobs enable row level security;
 alter table public.machine_job_history enable row level security;
+alter table public.machine_incidents enable row level security;
 alter table public.part_settings enable row level security;
 
 drop policy if exists "machine_jobs_select_all" on public.machine_jobs;
@@ -84,6 +107,28 @@ create policy "machine_job_history_insert_all"
 on public.machine_job_history
 for insert
 to anon, authenticated
+with check (true);
+
+drop policy if exists "machine_incidents_select_all" on public.machine_incidents;
+create policy "machine_incidents_select_all"
+on public.machine_incidents
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "machine_incidents_insert_all" on public.machine_incidents;
+create policy "machine_incidents_insert_all"
+on public.machine_incidents
+for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "machine_incidents_update_all" on public.machine_incidents;
+create policy "machine_incidents_update_all"
+on public.machine_incidents
+for update
+to anon, authenticated
+using (true)
 with check (true);
 
 drop policy if exists "part_settings_select_all" on public.part_settings;

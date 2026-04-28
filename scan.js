@@ -7,6 +7,8 @@ const scannerInput = document.getElementById("scannerInput");
 const statusInput = document.getElementById("statusInput");
 const statusTimeInput = document.getElementById("statusTimeInput");
 const detailInput = document.getElementById("detailInput");
+const detailInputHint = document.getElementById("detailInputHint");
+const statusFlowHint = document.getElementById("statusFlowHint");
 const scanForm = document.getElementById("scanForm");
 const resetStorageButton = document.getElementById("resetStorageButton");
 const useCurrentTimeButton = document.getElementById("useCurrentTimeButton");
@@ -48,6 +50,7 @@ const activeEmployees = Array.isArray(window.employeesData?.employees) ? window.
 let isSubmittingScan = false;
 let currentPartCandidates = [];
 let jobsState = cloneJobs(defaultJobs);
+let incidentsState = [];
 let previewObjectUrl = "";
 let scannerInputTimerId;
 let scannerLastSubmittedValue = "";
@@ -179,6 +182,11 @@ async function loadJobs() {
   return jobsState;
 }
 
+async function loadIncidents() {
+  incidentsState = await dataService.loadIncidents();
+  return incidentsState;
+}
+
 async function saveJobs(jobs) {
   jobsState = await dataService.saveAllJobs(jobs);
   return jobsState;
@@ -224,6 +232,24 @@ function getStatusTimeIso() {
   }
 
   return selectedDate.toISOString();
+}
+
+function getIncidentSortTime(incident) {
+  return new Date(incident.updatedAt || incident.closedAt || incident.openedAt || 0).getTime();
+}
+
+function getActiveIncident(machineId) {
+  return incidentsState
+    .filter((incident) => incident.machineId === machineId && incident.active)
+    .sort((left, right) => getIncidentSortTime(right) - getIncidentSortTime(left))[0] || null;
+}
+
+function getResolvedIncidentStatus(machineId, nextStatus) {
+  if (nextStatus) {
+    return nextStatus;
+  }
+
+  return jobsState[machineId]?.status || getDefaultStatus(machineId);
 }
 
 function normalizeScannerText(rawValue) {
@@ -507,6 +533,44 @@ function syncDetailInput() {
   detailInput.value = getDefaultDetail(machineSelect.value);
 }
 
+function syncIncidentHints() {
+  const machineId = machineSelect.value;
+  const status = statusInput.value;
+  const activeIncident = getActiveIncident(machineId);
+
+  if (status === "running" && activeIncident) {
+    if (statusFlowHint) {
+      statusFlowHint.textContent = `เครื่อง ${machineId} มีเหตุค้างอยู่ เมื่อบันทึกสถานะทำงาน ระบบจะปิดเหตุและใช้เวลานี้เป็นเวลาแก้เสร็จ`;
+    }
+
+    if (detailInputHint) {
+      detailInputHint.textContent = "กรอกรายละเอียดการแก้ไขหรือผลการดำเนินการ เช่น เปลี่ยนอะไหล่แล้ว ทดสอบเดินเครื่องผ่าน";
+    }
+
+    return;
+  }
+
+  if (status === "warning" || status === "down") {
+    if (statusFlowHint) {
+      statusFlowHint.textContent = `เมื่อบันทึก ${machineId} เป็นสถานะนี้ ระบบจะเปิดเหตุและเริ่มนับเวลาตั้งแต่เวลา Status ที่ระบุ`;
+    }
+
+    if (detailInputHint) {
+      detailInputHint.textContent = "กรอกรายละเอียดอาการที่พบหรือสาเหตุเบื้องต้น เพื่อให้ Monitor และประวัติแจ้งเหตุแสดงตรงกัน";
+    }
+
+    return;
+  }
+
+  if (statusFlowHint) {
+    statusFlowHint.textContent = "ถ้าเลือกต้องตรวจสอบหรือหยุด ระบบจะเปิดเหตุให้อัตโนมัติ และถ้าเลือกทำงานในเครื่องที่มีเหตุค้าง ระบบจะปิดเหตุพร้อมบันทึกเวลาแก้เสร็จ";
+  }
+
+  if (detailInputHint) {
+    detailInputHint.textContent = "เมื่อเปิดเหตุ ให้ใส่อาการที่พบ และเมื่อปิดเหตุให้ใส่วิธีแก้ไขหรือผลการดำเนินการ";
+  }
+}
+
 function renderJobList() {
   jobCountBadge.textContent = `${machineIds.length} เครื่อง`;
   jobList.innerHTML = "";
@@ -514,6 +578,10 @@ function renderJobList() {
   machineIds.forEach((machineId) => {
     const job = jobsState[machineId];
     const lookup = getQrLookup(job?.directValue || job?.partCode || job?.qrValue || "");
+    const activeIncident = getActiveIncident(machineId);
+    const incidentSummary = activeIncident
+      ? `${activeIncident.openStatus === "down" ? "เหตุหยุด" : "เหตุเตือน"} เริ่ม ${formatDateTime(activeIncident.openedAt)}`
+      : "ไม่มีเหตุค้าง";
     const card = document.createElement("article");
     card.className = "machine-card";
     card.innerHTML = `
@@ -539,6 +607,10 @@ function renderJobList() {
       <div class="machine-values">
         <span>ชื่อชิ้นงาน</span>
         <strong>${job?.partName || lookup.entityName || "-"}</strong>
+      </div>
+      <div class="machine-values">
+        <span>สถานะเหตุล่าสุด</span>
+        <strong>${incidentSummary}</strong>
       </div>
     `;
     jobList.appendChild(card);
@@ -706,6 +778,8 @@ scanForm.addEventListener("submit", async (event) => {
   const lookup = getQrLookup(qrInput.value);
   const scannedBy = scannerInput.value.trim() || "station-01";
   const selectedPart = getSelectedPartCandidate();
+  const partCode = selectedPart.entityCode || lookup.entityCode || lookup.parsed.partCode;
+  const partName = selectedPart.entityName || lookup.entityName || "";
   renderScanReadout(lookup.qrValue, selectedPart);
 
   if (!area) {
@@ -733,11 +807,13 @@ scanForm.addEventListener("submit", async (event) => {
   }
 
   const jobs = await loadJobs();
+  await loadIncidents();
+  const activeIncident = getActiveIncident(machineId);
   jobs[machineId] = {
     area,
     directValue: lookup.parsed.directValue,
-    partCode: selectedPart.entityCode || lookup.entityCode || lookup.parsed.partCode,
-    partName: selectedPart.entityName || lookup.entityName || null,
+    partCode,
+    partName,
     entityType: selectedPart.entityType || lookup.entityType || "PART",
     qrValue: lookup.qrValue,
     status,
@@ -748,11 +824,73 @@ scanForm.addEventListener("submit", async (event) => {
 
   await saveJobs(jobs);
   await dataService.recordHistory(machineId, jobs[machineId]);
+  let incidentMessage = "";
+
+  if (status === "warning" || status === "down") {
+    const incidentPayload = activeIncident
+      ? {
+          ...activeIncident,
+          area,
+          directValue: lookup.parsed.directValue,
+          partCode,
+          partName,
+          entityType: selectedPart.entityType || lookup.entityType || "PART",
+          qrValue: lookup.qrValue,
+          openStatus: status,
+          issueDetail: detail || activeIncident.issueDetail,
+          active: true,
+          updatedAt: statusTimeIso
+        }
+      : {
+          machineId,
+          area,
+          directValue: lookup.parsed.directValue,
+          partCode,
+          partName,
+          entityType: selectedPart.entityType || lookup.entityType || "PART",
+          qrValue: lookup.qrValue,
+          openStatus: status,
+          closeStatus: "",
+          issueDetail: detail,
+          resolutionDetail: "",
+          openedAt: statusTimeIso,
+          closedAt: "",
+          openedBy: scannedBy,
+          closedBy: "",
+          active: true,
+          updatedAt: statusTimeIso
+        };
+
+    await dataService.saveIncident(incidentPayload);
+    incidentMessage = activeIncident
+      ? `อัปเดตเหตุค้างของ ${machineId} ต่อเนื่องตั้งแต่ ${formatDateTime(activeIncident.openedAt)}`
+      : `เปิดเหตุของ ${machineId} เวลา ${formatDateTime(statusTimeIso)}`;
+  } else if (status === "running" && activeIncident) {
+    await dataService.saveIncident({
+      ...activeIncident,
+      area,
+      directValue: lookup.parsed.directValue,
+      partCode,
+      partName,
+      entityType: selectedPart.entityType || lookup.entityType || "PART",
+      qrValue: lookup.qrValue,
+      closeStatus: "running",
+      resolutionDetail: detail,
+      closedAt: statusTimeIso,
+      closedBy: scannedBy,
+      active: false,
+      updatedAt: statusTimeIso
+    });
+    incidentMessage = `ปิดเหตุของ ${machineId} เวลา ${formatDateTime(statusTimeIso)}`;
+  }
+
+  await loadIncidents();
   renderJobList();
+  syncIncidentHints();
   scannerLastSubmittedValue = "";
   showResult(
     `บันทึก ${machineId} เรียบร้อย`,
-    `${machineId} ในพื้นที่ ${area} กำลังผลิต ${selectedPart.entityCode} - ${selectedPart.entityName} จาก QR ${lookup.qrValue}`
+    `${machineId} ในพื้นที่ ${area} กำลังผลิต ${selectedPart.entityCode} - ${selectedPart.entityName} จาก QR ${lookup.qrValue}${incidentMessage ? ` | ${incidentMessage}` : ""}`
   );
   qrInput.value = lookup.parsed.partCode || lookup.qrValue;
   renderScanReadout(lookup.qrValue, selectedPart);
@@ -830,7 +968,12 @@ machineSelect.addEventListener("change", () => {
   syncStatusInput();
   syncStatusTimeInput();
   syncDetailInput();
+  syncIncidentHints();
   focusQrInput();
+});
+
+statusInput.addEventListener("change", () => {
+  syncIncidentHints();
 });
 
 useCurrentTimeButton.addEventListener("click", () => {
@@ -852,12 +995,14 @@ document.addEventListener("click", (event) => {
 
 async function initializeScanPage() {
   await loadJobs();
+  await loadIncidents();
   renderMachineOptions();
   renderScannerOptions();
   syncAreaInput();
   syncStatusInput();
   syncStatusTimeInput();
   syncDetailInput();
+  syncIncidentHints();
   renderJobList();
   renderPartSelection("");
   renderScanReadout("");

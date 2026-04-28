@@ -110,6 +110,7 @@
                   <option value="warning">ต้องตรวจสอบ</option>
                   <option value="down">หยุด</option>
                 </select>
+                <small class="field-hint" id="statusFlowHint">ถ้าเลือกต้องตรวจสอบหรือหยุด ระบบจะเปิดเหตุให้อัตโนมัติ และถ้าเลือกทำงานในเครื่องที่มีเหตุค้าง ระบบจะปิดเหตุพร้อมบันทึกเวลาแก้เสร็จ</small>
               </label>
 
               <label class="field">
@@ -122,7 +123,7 @@
               </label>
 
               <label class="field">
-                <span>Detail</span>
+                <span>Detail เหตุ / การแก้ไข</span>
                 <div class="detail-field">
                   <textarea
                     id="detailInput"
@@ -131,7 +132,7 @@
                     placeholder="พิมพ์รายละเอียดสถานะเครื่อง เช่น เครื่องหยุดรอเปลี่ยนแม่พิมพ์, รอ QC ตรวจ, ผลิตงานตามแผน"
                   ></textarea>
                 </div>
-                <small class="field-hint">รายละเอียดนี้จะแสดงต่อบนหน้า Monitor ของเครื่องที่เลือก</small>
+                <small class="field-hint" id="detailInputHint">เมื่อเปิดเหตุ ให้ใส่อาการที่พบ และเมื่อปิดเหตุให้ใส่วิธีแก้ไขหรือผลการดำเนินการ</small>
               </label>
 
               <div class="scan-actions">

@@ -179,6 +179,24 @@ async function handleApi(request, response, url) {
       return;
     }
 
+    if (request.method === "GET" && url.pathname === "/api/incidents") {
+      const rows = await proxySupabase("/machine_incidents?select=id,machine_id,area,direct_value,part_code,part_name,entity_type,qr_value,open_status,close_status,issue_detail,resolution_detail,opened_at,closed_at,opened_by,closed_by,active,created_at,updated_at&order=updated_at.desc&limit=300", {
+        prefer: "return=representation"
+      });
+      json(response, 200, rows || []);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/incidents") {
+      const body = await readRequestBody(request);
+      await proxySupabase("/machine_incidents?on_conflict=id", {
+        method: "POST",
+        body: [body.row || {}]
+      });
+      json(response, 200, { ok: true });
+      return;
+    }
+
     if (request.method === "GET" && url.pathname === "/api/part-settings") {
       const rows = await proxySupabase("/part_settings?select=part_code,injection_time_seconds,note,updated_at,updated_by&order=part_code.asc", {
         prefer: "return=representation"
