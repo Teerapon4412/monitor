@@ -22,6 +22,9 @@ const photoInput = document.getElementById("photoInput");
 const cameraPreview = document.getElementById("cameraPreview");
 const cameraStatus = document.getElementById("cameraStatus");
 const cameraMessage = document.getElementById("cameraMessage");
+const partCodeFallbackInput = document.getElementById("partCodeFallbackInput");
+const applyPartCodeFallbackButton = document.getElementById("applyPartCodeFallbackButton");
+const partCodeFallbackHint = document.getElementById("partCodeFallbackHint");
 const partSelection = document.getElementById("partSelection");
 const partSelectionHint = document.getElementById("partSelectionHint");
 const scannedDirectValue = document.getElementById("scannedDirectValue");
@@ -488,6 +491,15 @@ function renderMachineOptions() {
     .join("");
 }
 
+function syncPartCodeFallbackInput() {
+  const machineJob = jobsState[machineSelect.value];
+  const fallbackValue = machineJob?.partCode || "";
+
+  if (partCodeFallbackInput) {
+    partCodeFallbackInput.value = fallbackValue;
+  }
+}
+
 function getEmployeeOptionValue(employee) {
   return employee.employeeCode || employee.username || employee.fullName || employee.id;
 }
@@ -630,6 +642,40 @@ function renderScanReadout(rawValue = "", selectedPart = null) {
   scannedPartName.textContent = selectedPart?.entityName || lookup.entityName || "--";
 }
 
+function applyPartCodeFallback(rawValue) {
+  const normalizedValue = normalizeScannerText(rawValue || "").trim().toUpperCase();
+
+  if (!normalizedValue) {
+    if (partCodeFallbackHint) {
+      partCodeFallbackHint.textContent = "กรุณาระบุ Part Code จากข้อความบนป้ายก่อน";
+    }
+    return false;
+  }
+
+  qrInput.value = normalizedValue;
+  const lookup = updateQrPreview(normalizedValue, "ข้อความบนป้าย");
+  const selectedPart = getSelectedPartCandidate();
+
+  if (!selectedPart) {
+    if (partCodeFallbackHint) {
+      partCodeFallbackHint.textContent = `ยังไม่พบ ${normalizedValue} ใน Master Data กรุณาตรวจสอบ Part Code บนป้ายอีกครั้ง`;
+    }
+    return false;
+  }
+
+  if (partCodeFallbackInput) {
+    partCodeFallbackInput.value = normalizedValue;
+  }
+
+  if (partCodeFallbackHint) {
+    partCodeFallbackHint.textContent = `เลือก ${selectedPart.entityCode} - ${selectedPart.entityName} จาก Master Data แล้ว พร้อมบันทึกต่อได้ทันที`;
+  }
+
+  renderScanReadout(lookup.qrValue, selectedPart);
+  setCameraState("ใช้ Part จากป้ายแล้ว", `เลือก ${selectedPart.entityCode} จากข้อความบนป้ายแล้ว สามารถบันทึกงานต่อได้ทันที`);
+  return true;
+}
+
 function isTouchLikeDevice() {
   return window.matchMedia("(pointer: coarse)").matches || window.matchMedia("(hover: none)").matches;
 }
@@ -762,6 +808,9 @@ async function scanPhotoFile(file) {
         ? `ไม่สามารถเปิดรูป HEIC นี้ได้ กรุณาลองถ่ายใหม่ หรือปรับ iPhone เป็น Most Compatible${errorDetail}`
         : `ไม่สามารถอ่านรูปนี้ได้ กรุณาลองถ่ายใหม่หรือเลือกไฟล์รูปอื่น${errorDetail}`
     );
+    if (partCodeFallbackHint) {
+      partCodeFallbackHint.textContent = "ถ้า iPhone อ่านรูปไม่สำเร็จ ให้พิมพ์ Part Code จากข้อความบนป้ายในช่องสำรองด้านล่าง แล้วกด ใช้ Part นี้";
+    }
   }
 }
 
@@ -937,17 +986,36 @@ partSelection.addEventListener("change", () => {
   focusQrInput();
 });
 
+applyPartCodeFallbackButton?.addEventListener("click", () => {
+  applyPartCodeFallback(partCodeFallbackInput?.value || "");
+});
+
+partCodeFallbackInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  event.preventDefault();
+  applyPartCodeFallback(partCodeFallbackInput.value);
+});
+
 resetStorageButton.addEventListener("click", async () => {
   jobsState = await dataService.resetJobs(defaultJobs);
   renderJobList();
   showResult("รีเซ็ตข้อมูลแล้ว", "สถานะเครื่องจักรถูกคืนกลับเป็นค่าเริ่มต้นจากไฟล์ตั้งต้น");
   qrInput.value = "";
+  if (partCodeFallbackInput) {
+    partCodeFallbackInput.value = "";
+  }
   scannerLastSubmittedValue = "";
   detailInput.value = "";
   statusTimeInput.value = toDateTimeLocalValue();
   renderPartSelection("");
   renderScanReadout("");
   setScannerReadyState();
+  if (partCodeFallbackHint) {
+    partCodeFallbackHint.textContent = "ถ้าถ่ายรูป QR ไม่สำเร็จ ให้ดูรหัส Part จากข้อความบนป้ายแล้วพิมพ์ที่นี่ ระบบจะค้นชื่อชิ้นงานจาก Master Data ให้ทันที";
+  }
   focusQrInput();
 });
 
@@ -970,6 +1038,7 @@ machineSelect.addEventListener("change", () => {
   syncStatusInput();
   syncStatusTimeInput();
   syncDetailInput();
+  syncPartCodeFallbackInput();
   syncIncidentHints();
   focusQrInput();
 });
@@ -1004,6 +1073,7 @@ async function initializeScanPage() {
   syncStatusInput();
   syncStatusTimeInput();
   syncDetailInput();
+  syncPartCodeFallbackInput();
   syncIncidentHints();
   renderJobList();
   renderPartSelection("");

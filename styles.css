@@ -669,6 +669,10 @@ h2 {
   align-items: center;
 }
 
+.fallback-inline-actions {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .scan-time-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -717,6 +721,10 @@ h2 {
 
 .scan-preview-card {
   padding: 18px;
+}
+
+.fallback-part-card {
+  border-style: dashed;
 }
 
 .scan-readout {

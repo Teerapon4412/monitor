@@ -92,6 +92,25 @@
                 <p class="inspector-copy" id="cameraMessage">กดสแกนด้วยมือถือ หรือยิงสแกนเข้าช่อง QR แล้วระบบจะแสดงข้อมูลที่อ่านได้</p>
               </section>
 
+              <section class="scan-preview-card panel fallback-part-card">
+                <div class="section-heading">
+                  <span>สำรอง: เลือก Part จากข้อความบนป้าย</span>
+                  <span class="badge neutral">เหมาะกับ iPhone</span>
+                </div>
+                <div class="scan-inline-actions fallback-inline-actions">
+                  <input
+                    id="partCodeFallbackInput"
+                    name="partCodeFallbackInput"
+                    type="text"
+                    autocomplete="off"
+                    inputmode="text"
+                    placeholder="พิมพ์ Part Code เช่น WP6000012130"
+                  />
+                  <button type="button" class="action-button primary compact-button" id="applyPartCodeFallbackButton">ใช้ Part นี้</button>
+                </div>
+                <small class="field-hint" id="partCodeFallbackHint">ถ้าถ่ายรูป QR ไม่สำเร็จ ให้ดูรหัส Part จากข้อความบนป้ายแล้วพิมพ์ที่นี่ ระบบจะค้นชื่อชิ้นงานจาก Master Data ให้ทันที</small>
+              </section>
+
               <label class="field">
                 <span>เลือกชื่อชิ้นงานจาก Master Data</span>
                 <select id="partSelection" name="partSelection" required></select>
