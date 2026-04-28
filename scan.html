@@ -94,8 +94,15 @@
 
               <section class="scan-preview-card panel fallback-part-card">
                 <div class="section-heading">
-                  <span>สำรอง: เลือก Part จากข้อความบนป้าย</span>
-                  <span class="badge neutral">เหมาะกับ iPhone</span>
+                  <div>
+                    <p class="fallback-eyebrow">โหมดสำรองเมื่ออ่านรูปไม่ผ่าน</p>
+                    <span>เลือก Part จากข้อความบนป้าย</span>
+                  </div>
+                  <span class="badge neutral fallback-badge">เหมาะกับ iPhone</span>
+                </div>
+                <div class="fallback-part-copy">
+                  <strong>ใช้งานเร็ว 2 ขั้นตอน</strong>
+                  <p>ดูรหัส Part ที่พิมพ์บนป้าย แล้วพิมพ์เฉพาะ Part Code เช่น <code>WP6000012130</code> ระบบจะค้นชื่อชิ้นงานจาก Master Data ให้ทันที</p>
                 </div>
                 <div class="scan-inline-actions fallback-inline-actions">
                   <input
@@ -107,6 +114,11 @@
                     placeholder="พิมพ์ Part Code เช่น WP6000012130"
                   />
                   <button type="button" class="action-button primary compact-button" id="applyPartCodeFallbackButton">ใช้ Part นี้</button>
+                </div>
+                <div class="fallback-steps">
+                  <span>1. ดูรหัส Part จากป้าย</span>
+                  <span>2. พิมพ์แล้วกด ใช้ Part นี้</span>
+                  <span>3. ตรวจชื่อชิ้นงานก่อนบันทึก</span>
                 </div>
                 <small class="field-hint" id="partCodeFallbackHint">ถ้าถ่ายรูป QR ไม่สำเร็จ ให้ดูรหัส Part จากข้อความบนป้ายแล้วพิมพ์ที่นี่ ระบบจะค้นชื่อชิ้นงานจาก Master Data ให้ทันที</small>
               </section>

@@ -725,6 +725,73 @@ h2 {
 
 .fallback-part-card {
   border-style: dashed;
+  border-color: rgba(92, 225, 230, 0.28);
+  background:
+    linear-gradient(180deg, rgba(12, 34, 56, 0.96), rgba(8, 24, 42, 0.98)),
+    radial-gradient(circle at top right, rgba(92, 225, 230, 0.14), transparent 38%);
+  display: grid;
+  gap: 14px;
+}
+
+.fallback-part-card .section-heading {
+  align-items: start;
+}
+
+.fallback-eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.fallback-badge {
+  background: rgba(92, 225, 230, 0.1);
+  border: 1px solid rgba(92, 225, 230, 0.16);
+}
+
+.fallback-part-copy {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fallback-part-copy strong {
+  font-size: 0.98rem;
+}
+
+.fallback-part-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.fallback-part-copy code {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(92, 225, 230, 0.12);
+  color: var(--text);
+}
+
+.fallback-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fallback-steps span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .scan-readout {
