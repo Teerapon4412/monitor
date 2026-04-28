@@ -77,26 +77,43 @@
       ? [1, 0.7, 0.5, 0.35]
       : [1, 0.8, 0.6, 0.4];
     const inversionModes = ["dontInvert", "attemptBoth", "onlyInvert"];
+    const rotationAngles = [0, 90, 180, 270];
 
     for (const scale of scaleCandidates) {
-      const width = Math.max(320, Math.round(sourceWidth * scale));
-      const height = Math.max(320, Math.round(sourceHeight * scale));
+      const scaledWidth = Math.max(320, Math.round(sourceWidth * scale));
+      const scaledHeight = Math.max(320, Math.round(sourceHeight * scale));
 
-      canvas.width = width;
-      canvas.height = height;
-      context.clearRect(0, 0, width, height);
-      context.drawImage(imageSource.source, 0, 0, width, height);
+      for (const rotationAngle of rotationAngles) {
+        const isSideways = rotationAngle === 90 || rotationAngle === 270;
+        const width = isSideways ? scaledHeight : scaledWidth;
+        const height = isSideways ? scaledWidth : scaledHeight;
 
-      const imageData = context.getImageData(0, 0, width, height);
+        canvas.width = width;
+        canvas.height = height;
+        context.clearRect(0, 0, width, height);
+        context.save();
+        context.translate(width / 2, height / 2);
+        context.rotate((rotationAngle * Math.PI) / 180);
+        context.drawImage(
+          imageSource.source,
+          -scaledWidth / 2,
+          -scaledHeight / 2,
+          scaledWidth,
+          scaledHeight
+        );
+        context.restore();
 
-      for (const inversionAttempts of inversionModes) {
-        const result = window.jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts
-        });
+        const imageData = context.getImageData(0, 0, width, height);
 
-        if (result?.data?.trim()) {
-          imageSource.release();
-          return result.data.trim();
+        for (const inversionAttempts of inversionModes) {
+          const result = window.jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts
+          });
+
+          if (result?.data?.trim()) {
+            imageSource.release();
+            return result.data.trim();
+          }
         }
       }
     }
@@ -130,12 +147,52 @@
       return null;
     }
 
-    const result = await window.Tesseract.recognize(file, "eng", {
-      logger: () => {},
-      workerBlobURL: false
-    });
+    const imageSource = await getImageSource(file);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    const rotationAngles = [0, 90, 270, 180];
 
-    return extractPartCodeFromText(result?.data?.text || "");
+    if (!context) {
+      imageSource.release();
+      return null;
+    }
+
+    try {
+      for (const rotationAngle of rotationAngles) {
+        const isSideways = rotationAngle === 90 || rotationAngle === 270;
+        const width = isSideways ? imageSource.source.height : imageSource.source.width;
+        const height = isSideways ? imageSource.source.width : imageSource.source.height;
+
+        canvas.width = width;
+        canvas.height = height;
+        context.clearRect(0, 0, width, height);
+        context.save();
+        context.translate(width / 2, height / 2);
+        context.rotate((rotationAngle * Math.PI) / 180);
+        context.drawImage(
+          imageSource.source,
+          -imageSource.source.width / 2,
+          -imageSource.source.height / 2,
+          imageSource.source.width,
+          imageSource.source.height
+        );
+        context.restore();
+
+        const result = await window.Tesseract.recognize(canvas, "eng", {
+          logger: () => {},
+          workerBlobURL: false
+        });
+        const partCode = extractPartCodeFromText(result?.data?.text || "");
+
+        if (partCode) {
+          return partCode;
+        }
+      }
+    } finally {
+      imageSource.release();
+    }
+
+    return null;
   }
 
   async function decodeQrFromImageFile(file) {
