@@ -487,14 +487,12 @@ function getFilteredMachineHistory(machineId) {
 }
 
 function getAllFilteredHistory() {
-  const allEntries = machines.flatMap((machine) => {
-    const savedHistory = Array.isArray(machineHistoryState[machine.id]) ? machineHistoryState[machine.id] : [];
-
-    return savedHistory.map((entry) => ({
+  const allEntries = machines.flatMap((machine) =>
+    getMachineHistory(machine.id).map((entry) => ({
       ...entry,
       machineId: entry.machineId || machine.id
-    }));
-  });
+    }))
+  );
   const uniqueEntries = [];
   const seenKeys = new Set();
 
