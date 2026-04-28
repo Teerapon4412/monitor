@@ -315,7 +315,14 @@
   }
 
   async function decodeQrFromImageFile(file) {
-    const barcodeDetectorResult = await decodeWithBarcodeDetector(file);
+    const errors = [];
+    let barcodeDetectorResult = null;
+
+    try {
+      barcodeDetectorResult = await decodeWithBarcodeDetector(file);
+    } catch (error) {
+      errors.push(`BarcodeDetector: ${error.message || "failed"}`);
+    }
 
     if (barcodeDetectorResult) {
       return {
@@ -324,7 +331,13 @@
       };
     }
 
-    const jsQrResult = await decodeWithJsQr(file);
+    let jsQrResult = null;
+
+    try {
+      jsQrResult = await decodeWithJsQr(file);
+    } catch (error) {
+      errors.push(`jsQR: ${error.message || "failed"}`);
+    }
 
     if (jsQrResult) {
       return {
@@ -333,7 +346,13 @@
       };
     }
 
-    const ocrPartCode = await decodePartCodeWithOcr(file);
+    let ocrPartCode = null;
+
+    try {
+      ocrPartCode = await decodePartCodeWithOcr(file);
+    } catch (error) {
+      errors.push(`OCR: ${error.message || "failed"}`);
+    }
 
     if (ocrPartCode) {
       return {
@@ -344,7 +363,8 @@
 
     return {
       value: null,
-      source: window.Tesseract?.recognize ? "OCR" : (typeof window.jsQR === "function" ? "jsQR" : "unavailable")
+      source: window.Tesseract?.recognize ? "OCR" : (typeof window.jsQR === "function" ? "jsQR" : "unavailable"),
+      error: errors.join(" | ")
     };
   }
 

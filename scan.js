@@ -737,7 +737,8 @@ async function scanPhotoFile(file) {
     const decodedResult = await window.monitorQrImageDecoder.decodeQrFromImageFile(file);
 
     if (!decodedResult?.value) {
-      setCameraState("ไม่พบ QR", "ระบบเปิดรูปได้ แต่ยังไม่พบ QR ในภาพนี้ ลองถ่ายให้ชัดขึ้นหรือขยับใกล้อีกนิด");
+      const errorDetail = decodedResult?.error ? ` รายละเอียด: ${decodedResult.error}` : "";
+      setCameraState("ไม่พบ QR", `ระบบเปิดรูปได้ แต่ยังไม่พบ QR ในภาพนี้ ลองถ่ายให้ชัดขึ้นหรือขยับใกล้อีกนิด${errorDetail}`);
       return;
     }
 
@@ -754,11 +755,12 @@ async function scanPhotoFile(file) {
     submitScan();
   } catch (error) {
     const isHeicLike = /heic|heif/i.test(file?.type || "") || /\.(heic|heif)$/i.test(file?.name || "");
+    const errorDetail = error?.message ? ` รายละเอียด: ${error.message}` : "";
     setCameraState(
       "เปิดรูปไม่ได้",
       isHeicLike
-        ? "ไม่สามารถเปิดรูป HEIC นี้ได้ กรุณาลองถ่ายใหม่ หรือปรับ iPhone เป็น Most Compatible"
-        : "ไม่สามารถอ่านรูปนี้ได้ กรุณาลองถ่ายใหม่หรือเลือกไฟล์รูปอื่น"
+        ? `ไม่สามารถเปิดรูป HEIC นี้ได้ กรุณาลองถ่ายใหม่ หรือปรับ iPhone เป็น Most Compatible${errorDetail}`
+        : `ไม่สามารถอ่านรูปนี้ได้ กรุณาลองถ่ายใหม่หรือเลือกไฟล์รูปอื่น${errorDetail}`
     );
   }
 }
