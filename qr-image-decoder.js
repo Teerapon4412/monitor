@@ -70,17 +70,39 @@
       return null;
     }
 
-    canvas.width = imageSource.source.width;
-    canvas.height = imageSource.source.height;
-    context.drawImage(imageSource.source, 0, 0);
+    const sourceWidth = imageSource.source.width;
+    const sourceHeight = imageSource.source.height;
+    const maxDimension = Math.max(sourceWidth, sourceHeight);
+    const scaleCandidates = maxDimension > 2200
+      ? [1, 0.7, 0.5, 0.35]
+      : [1, 0.8, 0.6, 0.4];
+    const inversionModes = ["dontInvert", "attemptBoth", "onlyInvert"];
+
+    for (const scale of scaleCandidates) {
+      const width = Math.max(320, Math.round(sourceWidth * scale));
+      const height = Math.max(320, Math.round(sourceHeight * scale));
+
+      canvas.width = width;
+      canvas.height = height;
+      context.clearRect(0, 0, width, height);
+      context.drawImage(imageSource.source, 0, 0, width, height);
+
+      const imageData = context.getImageData(0, 0, width, height);
+
+      for (const inversionAttempts of inversionModes) {
+        const result = window.jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts
+        });
+
+        if (result?.data?.trim()) {
+          imageSource.release();
+          return result.data.trim();
+        }
+      }
+    }
+
     imageSource.release();
-
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-    const result = window.jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "dontInvert"
-    });
-
-    return result?.data?.trim() || null;
+    return null;
   }
 
   async function decodeQrFromImageFile(file) {
