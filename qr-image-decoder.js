@@ -168,12 +168,56 @@
       return null;
     }
 
-    const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
     const imageSource = await getImageSource(file);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+
+    if (!context) {
+      imageSource.release();
+      return null;
+    }
+
+    const supportedFormats = typeof window.BarcodeDetector.getSupportedFormats === "function"
+      ? await window.BarcodeDetector.getSupportedFormats()
+      : ["qr_code"];
+    const preferredFormats = ["qr_code", "data_matrix", "aztec", "pdf417"];
+    const formats = preferredFormats.filter((format) => supportedFormats.includes(format));
+    const detector = new window.BarcodeDetector({ formats: formats.length ? formats : ["qr_code"] });
+    const scaleCandidates = [1, 0.85, 0.65];
+    const rotationAngles = [0, 90, 180, 270];
+    const cropCandidates = [
+      null,
+      { x: 0.18, y: 0.12, width: 0.64, height: 0.72 },
+      { x: 0.1, y: 0.1, width: 0.8, height: 0.8 }
+    ];
 
     try {
-      const barcodes = await detector.detect(imageSource.source);
-      return barcodes[0]?.rawValue?.trim() || null;
+      const directBarcodes = await detector.detect(imageSource.source);
+
+      if (directBarcodes[0]?.rawValue?.trim()) {
+        return directBarcodes[0].rawValue.trim();
+      }
+
+      for (const scale of scaleCandidates) {
+        for (const rotationAngle of rotationAngles) {
+          for (const crop of cropCandidates) {
+            drawImageVariant(context, imageSource, {
+              rotationAngle,
+              scale,
+              crop,
+              preset: "original"
+            });
+
+            const barcodes = await detector.detect(canvas);
+
+            if (barcodes[0]?.rawValue?.trim()) {
+              return barcodes[0].rawValue.trim();
+            }
+          }
+        }
+      }
+
+      return null;
     } finally {
       imageSource.release();
     }
