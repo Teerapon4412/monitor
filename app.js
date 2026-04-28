@@ -66,6 +66,7 @@ const dataService = window.monitorDataService;
 
 let selectedMachineId = "MC 10";
 let refreshTimerId;
+let partSettingsState = {};
 const masterQrCodes = Array.isArray(window.masterData?.qrCodes) ? window.masterData.qrCodes : [];
 const masterCatalog = Array.isArray(window.masterData?.catalog) ? window.masterData.catalog : [];
 const fallbackQrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
@@ -115,6 +116,11 @@ async function loadMachineHistory() {
 async function loadMachineIncidents() {
   machineIncidentsState = await dataService.loadIncidents();
   return machineIncidentsState;
+}
+
+async function loadPartSettings() {
+  partSettingsState = await dataService.loadPartSettings();
+  return partSettingsState;
 }
 
 function getMachineJob(machineId) {
@@ -188,6 +194,23 @@ function getCurrentPart(machine) {
   }
 
   return qrLookup.get(partCode) || catalogLookup.get(partCode) || null;
+}
+
+function getCurrentCycleTime(machine) {
+  if (!machine) {
+    return null;
+  }
+
+  const currentPart = getCurrentPart(machine);
+  const partCode = getMachinePartCode(machine) || currentPart?.entityCode || null;
+  const partSetting = partCode ? partSettingsState[partCode] : null;
+  const configuredCycleTime = Number(partSetting?.injectionTimeSeconds);
+
+  if (Number.isFinite(configuredCycleTime) && configuredCycleTime > 0) {
+    return configuredCycleTime;
+  }
+
+  return Number.isFinite(machine.cycle) && machine.cycle > 0 ? machine.cycle : null;
 }
 
 function resolveHistoryPartName(entry) {
@@ -527,6 +550,36 @@ function renderFocusStrip() {
     focusStrip.appendChild(item);
   });
 }
+
+renderFocusStrip = function renderFocusStripCurrentJob() {
+  const selected = getMachine(selectedMachineId);
+  const currentPart = getCurrentPart(selected);
+  const currentCycleTime = getCurrentCycleTime(selected);
+  const machineStatus = selected ? getMachineStatus(selected) : null;
+
+  if (!selected) {
+    focusStrip.innerHTML = "";
+    return;
+  }
+
+  const cards = [
+    { label: "เครื่องที่เลือก", value: selected.id },
+    { label: "ชิ้นงานปัจจุบัน", value: currentPart?.entityCode || "ไม่ทราบ" },
+    { label: "Cycle Time", value: currentCycleTime ? `${currentCycleTime} วินาที` : "--" },
+    { label: "สถานะ", value: statusLabel[machineStatus] || "--" }
+  ];
+
+  focusStrip.innerHTML = "";
+  cards.forEach((card) => {
+    const item = document.createElement("article");
+    item.className = "focus-card";
+    item.innerHTML = `
+      <span>${card.label}</span>
+      <strong>${card.value}</strong>
+    `;
+    focusStrip.appendChild(item);
+  });
+};
 
 function getMachineHistory(machineId) {
   const savedHistory = Array.isArray(machineHistoryState[machineId]) ? machineHistoryState[machineId] : [];
@@ -871,6 +924,7 @@ async function refreshDashboard() {
   await loadMachineJobs();
   await loadMachineHistory();
   await loadMachineIncidents();
+  await loadPartSettings();
   renderMachines();
   renderAlerts();
   renderSummary();
