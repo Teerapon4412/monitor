@@ -468,12 +468,12 @@ function renderSummary() {
     ? activeMachines.reduce((sum, machine) => sum + machine.oee, 0) / activeMachines.length
     : 0;
   const critical = liveAlerts.find((alert) => alert.level === "critical");
-  const totalOutput = machines.reduce((sum, machine) => sum + machine.output, 0);
+  const totalIncidentCount = getAllIncidentEntries().length;
   const criticalCount = liveAlerts.filter((alert) => alert.level === "critical").length;
 
   lineEfficiency.textContent = `${avgOee.toFixed(1)}%`;
   criticalAlerts.textContent = String(criticalCount).padStart(2, "0");
-  unitsCompleted.textContent = formatCompactNumber(totalOutput).toLowerCase();
+  unitsCompleted.textContent = formatCompactNumber(totalIncidentCount).toLowerCase();
   onlineCount.textContent = `${running} / ${machines.length}`;
   onlineSubtext.textContent = `${warning + down} เครื่องต้องติดตาม`;
   averageCycle.textContent = `${avgCycle} วินาที`;
@@ -606,6 +606,28 @@ function getAllFilteredHistory() {
   return uniqueEntries
     .filter((entry) => isHistoryEntryInDateRange({ updatedAt: entry.openedAt || entry.updatedAt }))
     .sort((left, right) => new Date(right.updatedAt || right.openedAt || 0).getTime() - new Date(left.updatedAt || left.openedAt || 0).getTime());
+}
+
+function getAllIncidentEntries() {
+  const allEntries = [
+    ...machineIncidentsState,
+    ...machines.map((machine) => getFallbackIncidentFromJob(machine)).filter(Boolean)
+  ];
+  const uniqueEntries = [];
+  const seenKeys = new Set();
+
+  allEntries.forEach((entry) => {
+    const key = entry.id || `${entry.machineId}-${entry.openedAt || entry.updatedAt}-${entry.qrValue || entry.directValue || ""}-${entry.openStatus || ""}`;
+
+    if (seenKeys.has(key)) {
+      return;
+    }
+
+    seenKeys.add(key);
+    uniqueEntries.push(entry);
+  });
+
+  return uniqueEntries;
 }
 
 function renderStatusHistory() {
