@@ -327,7 +327,7 @@ function setSelectedMachine(machineId) {
     inspectorQrValue.textContent = "--";
     inspectorService.textContent = "--";
     focusStrip.innerHTML = "";
-    renderStatusHistory(null);
+    renderStatusHistory();
     return;
   }
 
@@ -358,7 +358,7 @@ function setSelectedMachine(machineId) {
   });
 
   renderFocusStrip();
-  renderStatusHistory(machine.id);
+  renderStatusHistory();
 }
 
 function renderSummary() {
@@ -487,12 +487,14 @@ function getFilteredMachineHistory(machineId) {
 }
 
 function getAllFilteredHistory() {
-  const allEntries = machines.flatMap((machine) =>
-    getMachineHistory(machine.id).map((entry) => ({
+  const allEntries = machines.flatMap((machine) => {
+    const savedHistory = Array.isArray(machineHistoryState[machine.id]) ? machineHistoryState[machine.id] : [];
+
+    return savedHistory.map((entry) => ({
       ...entry,
       machineId: entry.machineId || machine.id
-    }))
-  );
+    }));
+  });
   const uniqueEntries = [];
   const seenKeys = new Set();
 
@@ -516,6 +518,8 @@ function renderStatusHistory() {
   if (!statusHistoryList || !historyCountBadge) {
     return;
   }
+
+  const machineId = "ทุกเครื่อง";
 
   if (false) {
     historyCountBadge.textContent = "-- รายการ";
