@@ -100,6 +100,10 @@ h2 {
   line-height: 1.6;
 }
 
+.sidebar-cta {
+  margin-top: 22px;
+}
+
 .inline-link {
   color: var(--cyan);
   text-decoration: none;
@@ -108,6 +112,48 @@ h2 {
 
 .inline-link:hover {
   border-bottom-color: var(--cyan);
+}
+
+.sidebar-link-button {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  text-decoration: none;
+  color: var(--text);
+  background:
+    linear-gradient(135deg, rgba(92, 225, 230, 0.16), rgba(92, 225, 230, 0.05)),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(92, 225, 230, 0.3);
+  box-shadow: 0 16px 28px rgba(4, 15, 26, 0.28);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.sidebar-link-button:hover,
+.sidebar-link-button:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(92, 225, 230, 0.56);
+  box-shadow: 0 20px 34px rgba(4, 15, 26, 0.34);
+  background:
+    linear-gradient(135deg, rgba(92, 225, 230, 0.22), rgba(92, 225, 230, 0.08)),
+    rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-link-button:focus-visible {
+  outline: 2px solid rgba(92, 225, 230, 0.42);
+  outline-offset: 3px;
+}
+
+.sidebar-link-button span {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.sidebar-link-button small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .section-heading {
