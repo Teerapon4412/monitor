@@ -584,6 +584,9 @@ function syncIncidentHints() {
 }
 
 function renderJobList() {
+  if (!jobList || !jobCountBadge) {
+    return;
+  }
   jobCountBadge.textContent = `${machineIds.length} เครื่อง`;
   jobList.innerHTML = "";
 
