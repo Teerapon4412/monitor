@@ -16,6 +16,9 @@ const resultTitle = document.getElementById("resultTitle");
 const resultMessage = document.getElementById("resultMessage");
 const jobList = document.getElementById("jobList");
 const jobCountBadge = document.getElementById("jobCountBadge");
+const successPopup = document.getElementById("successPopup");
+const successPopupMessage = document.getElementById("successPopupMessage");
+const successPopupConfirmButton = document.getElementById("successPopupConfirmButton");
 const startCameraButton = document.getElementById("startCameraButton");
 const stopCameraButton = document.getElementById("stopCameraButton");
 const photoInput = document.getElementById("photoInput");
@@ -57,6 +60,7 @@ let incidentsState = [];
 let previewObjectUrl = "";
 let scannerInputTimerId;
 let scannerLastSubmittedValue = "";
+let closeSuccessPopupResolver = null;
 const defaultMachineAreas = {
   "MC 10": "Injection",
   "MC 12": "Injection",
@@ -637,6 +641,46 @@ function showResult(title, message) {
   resultMessage.textContent = message;
 }
 
+function closeSuccessPopup() {
+  if (!successPopup || successPopup.hidden) {
+    return;
+  }
+
+  successPopup.hidden = true;
+
+  if (typeof closeSuccessPopupResolver === "function") {
+    const resolver = closeSuccessPopupResolver;
+    closeSuccessPopupResolver = null;
+    resolver();
+  }
+}
+
+function showSuccessPopup(message) {
+  if (!successPopup || !successPopupMessage) {
+    return Promise.resolve();
+  }
+
+  successPopupMessage.textContent = message;
+  successPopup.hidden = false;
+
+  return new Promise((resolve) => {
+    closeSuccessPopupResolver = resolve;
+    window.setTimeout(() => {
+      successPopupConfirmButton?.focus();
+    }, 0);
+  });
+}
+
+successPopupConfirmButton?.addEventListener("click", () => {
+  closeSuccessPopup();
+});
+
+successPopup?.addEventListener("click", (event) => {
+  if (event.target instanceof HTMLElement && event.target.classList.contains("success-popup-backdrop")) {
+    closeSuccessPopup();
+  }
+});
+
 function renderScanReadout(rawValue = "", selectedPart = null) {
   const lookup = getQrLookup(rawValue);
 
@@ -965,6 +1009,7 @@ scanForm.addEventListener("submit", async (event) => {
     `บันทึก ${machineId} เรียบร้อย`,
     `${machineId} ในพื้นที่ ${area} กำลังผลิต ${selectedPart.entityCode} - ${selectedPart.entityName} จาก QR ${lookup.qrValue}${incidentMessage ? ` | ${incidentMessage}` : ""}`
   );
+  await showSuccessPopup(`อัปเดต ${machineId} เรียบร้อยแล้ว`);
   resetScanEntryFields();
   setCameraState("บันทึกสำเร็จ", `บันทึก ${selectedPart.entityCode} ให้ ${machineId} แล้ว พร้อมสแกนรายการถัดไป`);
   focusQrInput(true);

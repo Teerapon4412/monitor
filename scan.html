@@ -184,6 +184,16 @@
       </main>
     </div>
 
+    <div class="success-popup" id="successPopup" hidden>
+      <div class="success-popup-backdrop"></div>
+      <section class="success-popup-card panel" role="dialog" aria-modal="true" aria-labelledby="successPopupTitle">
+        <span class="badge live">อัปเดตสำเร็จ</span>
+        <h3 id="successPopupTitle">ระบบอัปเดตเรียบร้อย</h3>
+        <p class="inspector-copy" id="successPopupMessage">บันทึกข้อมูลสำเร็จ</p>
+        <button type="button" class="action-button primary" id="successPopupConfirmButton">ตกลง</button>
+      </section>
+    </div>
+
     <script src="./config.js"></script>
     <script src="./data-service.js"></script>
     <script src="./data/employees-data.js"></script>
