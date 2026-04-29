@@ -778,6 +778,42 @@ function exportSelectedMachineHistory() {
   URL.revokeObjectURL(url);
 }
 
+exportSelectedMachineHistory = function exportSelectedMachineHistoryFormatted() {
+  const history = getAllFilteredHistory();
+
+  if (history.length === 0) {
+    return;
+  }
+
+  const headers = ["เครื่อง", "สถานะเปิดเหตุ", "เวลาเริ่มเหตุ", "เวลาปิดเหตุ", "ระยะเวลา (นาที)", "ผู้เปิด / ผู้ปิด", "พื้นที่", "รหัสชิ้นงาน", "ชื่อชิ้นงาน", "QR", "อาการที่พบ", "การแก้ไข", "สถานะเหตุ"];
+  const rows = history.map((entry) => [
+    entry.machineId || "",
+    statusLabel[entry.openStatus] || entry.openStatus || statusLabel[entry.status] || entry.status || "",
+    formatLastScan(entry.openedAt || entry.updatedAt),
+    entry.closedAt ? formatLastScan(entry.closedAt) : "",
+    getIncidentDurationMinutes(entry) ?? "",
+    entry.active ? (entry.openedBy || entry.scannedBy || "") : `${entry.openedBy || entry.scannedBy || ""} / ${entry.closedBy || ""}`,
+    entry.area || "",
+    entry.partCode || "",
+    resolveHistoryPartName(entry),
+    entry.qrValue || entry.directValue || "",
+    entry.issueDetail || entry.detail || "",
+    entry.resolutionDetail || "",
+    entry.active ? "เปิดเหตุอยู่" : "ปิดเหตุแล้ว"
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map(escapeCsvValue).join(",")).join("\r\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "all-machine-status-history.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
 function renderMachines() {
   plantMap.innerHTML = "";
 
