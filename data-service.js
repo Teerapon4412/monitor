@@ -592,8 +592,6 @@
   }
 
   async function loadJobs(defaultJobs) {
-    await flushPendingSyncQueue();
-
     try {
       return await fetchCloudJobs(defaultJobs);
     } catch (error) {
@@ -649,8 +647,6 @@
   }
 
   async function loadHistory() {
-    await flushPendingSyncQueue();
-
     try {
       return await fetchCloudHistory();
     } catch (error) {
@@ -659,8 +655,6 @@
   }
 
   async function loadPartSettings() {
-    await flushPendingSyncQueue();
-
     try {
       return await fetchCloudPartSettings();
     } catch (error) {
@@ -669,8 +663,6 @@
   }
 
   async function loadIncidents() {
-    await flushPendingSyncQueue();
-
     try {
       return await fetchCloudIncidents();
     } catch (error) {

@@ -870,6 +870,18 @@ function applyPartCodeFallback(rawValue) {
   return true;
 }
 
+function upsertIncidentState(incident) {
+  const nextIncident = JSON.parse(JSON.stringify(incident));
+  const existingIndex = incidentsState.findIndex((item) => item.id === nextIncident.id);
+
+  if (existingIndex >= 0) {
+    incidentsState[existingIndex] = nextIncident;
+    return;
+  }
+
+  incidentsState.unshift(nextIncident);
+}
+
 function resetScanEntryFields() {
   qrInput.value = "";
   detailInput.value = "";
@@ -1071,8 +1083,7 @@ scanForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  const jobs = await loadJobs();
-  await loadIncidents();
+  const jobs = cloneJobs(jobsState);
   const activeIncident = getActiveIncident(machineId);
   jobs[machineId] = {
     area,
@@ -1087,7 +1098,7 @@ scanForm.addEventListener("submit", async (event) => {
     scannedBy
   };
 
-  await saveJobs(jobs);
+  jobsState = await dataService.saveJob(machineId, jobs[machineId], defaultJobs);
   await dataService.recordHistory(machineId, jobs[machineId]);
   let incidentMessage = "";
 
@@ -1126,12 +1137,13 @@ scanForm.addEventListener("submit", async (event) => {
           updatedAt: statusTimeIso
         };
 
-    await dataService.saveIncident(incidentPayload);
+    const savedIncident = await dataService.saveIncident(incidentPayload);
+    upsertIncidentState(savedIncident);
     incidentMessage = activeIncident
       ? `อัปเดตเหตุค้างของ ${machineId} ต่อเนื่องตั้งแต่ ${formatDateTime(activeIncident.openedAt)}`
       : `เปิดเหตุของ ${machineId} เวลา ${formatDateTime(statusTimeIso)}`;
   } else if (status === "running" && activeIncident) {
-    await dataService.saveIncident({
+    const savedIncident = await dataService.saveIncident({
       ...activeIncident,
       area,
       directValue: lookup.parsed.directValue,
@@ -1146,10 +1158,10 @@ scanForm.addEventListener("submit", async (event) => {
       active: false,
       updatedAt: statusTimeIso
     });
+    upsertIncidentState(savedIncident);
     incidentMessage = `ปิดเหตุของ ${machineId} เวลา ${formatDateTime(statusTimeIso)}`;
   }
 
-  await loadIncidents();
   renderJobList();
   syncIncidentHints();
   showResult(
@@ -1278,8 +1290,10 @@ document.addEventListener("click", (event) => {
 });
 
 async function initializeScanPage() {
-  await loadJobs();
-  await loadIncidents();
+  dataService.flushPendingSyncQueue?.();
+  const [jobs, incidents] = await Promise.all([loadJobs(), loadIncidents()]);
+  jobsState = jobs;
+  incidentsState = incidents;
   renderMachineOptions();
   renderScannerOptions();
   syncAreaInput();

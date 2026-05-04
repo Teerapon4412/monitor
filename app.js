@@ -67,6 +67,7 @@ const dataService = window.monitorDataService;
 let selectedMachineId = "MC 10";
 let refreshTimerId;
 let partSettingsState = {};
+let isRefreshingDashboard = false;
 const masterQrCodes = Array.isArray(window.masterData?.qrCodes) ? window.masterData.qrCodes : [];
 const masterCatalog = Array.isArray(window.masterData?.catalog) ? window.masterData.catalog : [];
 const fallbackQrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
@@ -957,19 +958,38 @@ function setTimestamp() {
 }
 
 async function refreshDashboard() {
-  await loadMachineJobs();
-  await loadMachineHistory();
-  await loadMachineIncidents();
-  await loadPartSettings();
-  renderMachines();
-  renderAlerts();
-  renderSummary();
-  setSelectedMachine(selectedMachineId);
-  setTimestamp();
+  if (isRefreshingDashboard) {
+    return;
+  }
+
+  isRefreshingDashboard = true;
+
+  try {
+    const [jobs, history, incidents, partSettings] = await Promise.all([
+      loadMachineJobs(),
+      loadMachineHistory(),
+      loadMachineIncidents(),
+      loadPartSettings()
+    ]);
+
+    machineJobsState = jobs;
+    machineHistoryState = history;
+    machineIncidentsState = incidents;
+    partSettingsState = partSettings;
+
+    renderMachines();
+    renderAlerts();
+    renderSummary();
+    setSelectedMachine(selectedMachineId);
+    setTimestamp();
+  } finally {
+    isRefreshingDashboard = false;
+  }
 }
 
 async function initializeDashboard() {
   renderTicker();
+  dataService.flushPendingSyncQueue?.();
   await refreshDashboard();
 
   [historyFromDate, historyToDate].forEach((input) => {
