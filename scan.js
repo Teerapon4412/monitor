@@ -754,7 +754,7 @@ async function processLiveVideoFrame() {
       updateQrPreview(qrValue, "กล้องสด");
       setScannerOverlayMessage(`พบ QR แล้ว: ${qrValue} กำลังบันทึกให้อัตโนมัติ`);
       closeScannerOverlay();
-      submitScan();
+      focusQrInput(true, { allowOnTouch: true });
       return;
     }
   } catch (error) {
@@ -1024,7 +1024,7 @@ async function scanPhotoFile(file) {
     qrInput.value = qrValue;
     const lookup = updateQrPreview(qrValue, "รูป QR");
     setCameraState("พบ QR แล้ว", `อ่านค่า ${qrValue} จากรูปแล้วด้วย ${decodedResult.source} กำลังบันทึกให้อัตโนมัติ`);
-    submitScan();
+    focusQrInput(true, { allowOnTouch: true });
   } catch (error) {
     const isHeicLike = /heic|heif/i.test(file?.type || "") || /\.(heic|heif)$/i.test(file?.name || "");
     const errorDetail = error?.message ? ` รายละเอียด: ${error.message}` : "";
