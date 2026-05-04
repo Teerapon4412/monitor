@@ -331,6 +331,45 @@ function getIncidentDurationLabel(incident) {
   return formatDurationMinutes(totalMinutes);
 }
 
+function getCurrentMonthRange(dateValue = new Date()) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  const monthStart = new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+  const nextMonthStart = new Date(date.getFullYear(), date.getMonth() + 1, 1, 0, 0, 0, 0);
+  return {
+    monthStart,
+    nextMonthStart
+  };
+}
+
+function getIncidentDurationMinutesInMonth(incident, referenceDate = new Date()) {
+  const { monthStart, nextMonthStart } = getCurrentMonthRange(referenceDate);
+  const openedAt = new Date(incident.openedAt || incident.updatedAt || 0);
+  const closedAt = new Date(incident.closedAt || Date.now());
+
+  if (Number.isNaN(openedAt.getTime()) || Number.isNaN(closedAt.getTime()) || closedAt < openedAt) {
+    return 0;
+  }
+
+  const effectiveStart = openedAt > monthStart ? openedAt : monthStart;
+  const effectiveEnd = closedAt < nextMonthStart ? closedAt : nextMonthStart;
+
+  if (effectiveEnd <= effectiveStart) {
+    return 0;
+  }
+
+  return Math.max(0, Math.round((effectiveEnd.getTime() - effectiveStart.getTime()) / 60000));
+}
+
+function getMonthlyDowntimeMinutes(referenceDate = new Date()) {
+  return getAllIncidentEntries().reduce((sum, incident) => {
+    if (incident.openStatus !== "down") {
+      return sum;
+    }
+
+    return sum + getIncidentDurationMinutesInMonth(incident, referenceDate);
+  }, 0);
+}
+
 function getFallbackIncidentFromJob(machine) {
   const job = getMachineJob(machine.id);
   const status = getMachineStatus(machine);
@@ -500,26 +539,18 @@ function setSelectedMachine(machineId) {
 }
 
 function renderSummary() {
+  const now = new Date();
   const running = machines.filter((machine) => getMachineStatus(machine) === "running").length;
   const warning = machines.filter((machine) => getMachineStatus(machine) === "warning").length;
   const down = machines.filter((machine) => getMachineStatus(machine) === "down").length;
   const cycleMachines = machines.filter((machine) => machine.cycle > 0);
   const activeMachines = machines.filter((machine) => getMachineStatus(machine) !== "down");
   const liveAlerts = getLiveAlerts();
-  const activeDowntimeMinutes = machines.reduce((sum, machine) => {
-    const incident = getActiveIncident(machine.id) || getFallbackIncidentFromJob(machine);
-
-    if (!incident || incident.openStatus !== "down") {
-      return sum;
-    }
-
-    return sum + (getIncidentDurationMinutes(incident) || 0);
-  }, 0);
+  const monthlyDowntimeMinutes = getMonthlyDowntimeMinutes(now);
   const avgCycle = Math.round(cycleMachines.reduce((sum, machine) => sum + machine.cycle, 0) / cycleMachines.length);
   const avgOee = activeMachines.length
     ? activeMachines.reduce((sum, machine) => sum + machine.oee, 0) / activeMachines.length
     : 0;
-  const critical = liveAlerts.find((alert) => alert.level === "critical");
   const totalIncidentCount = getAllIncidentEntries().length;
   const criticalCount = liveAlerts.filter((alert) => alert.level === "critical").length;
 
@@ -530,8 +561,8 @@ function renderSummary() {
   onlineSubtext.textContent = `${warning + down} เครื่องต้องติดตาม`;
   averageCycle.textContent = `${avgCycle} วินาที`;
   cycleDelta.textContent = "-4 วินาที เทียบกับกะก่อนหน้า";
-  downtimeValue.textContent = formatDurationMinutes(activeDowntimeMinutes);
-  downtimeCause.textContent = critical ? `สาเหตุหลัก: ${critical.detail}` : "ไม่มีการหยุดเครื่องระดับวิกฤต";
+  downtimeValue.textContent = formatDurationMinutes(monthlyDowntimeMinutes);
+  downtimeCause.textContent = `${now.toLocaleDateString("th-TH", { month: "long", year: "numeric" })} | เหตุวิกฤตค้างอยู่ ${criticalCount} เคส`;
 }
 
 function renderTicker() {
