@@ -85,12 +85,12 @@ const defaultMachineAreas = {
 const defaultMachineStatuses = {
   "MC 10": "running",
   "MC 12": "running",
-  "MC 13": "warning",
+  "MC 13": "down",
   "MC 15": "running",
   "MC 11": "running",
   "MC 07": "down",
   "MC 16": "running",
-  "MC 19": "warning",
+  "MC 19": "down",
   "MC 18": "running"
 };
 
@@ -492,7 +492,8 @@ function getDefaultArea(machineId) {
 }
 
 function getDefaultStatus(machineId) {
-  return defaultJobs[machineId]?.status || defaultMachineStatuses[machineId] || "running";
+  const status = defaultJobs[machineId]?.status || defaultMachineStatuses[machineId] || "running";
+  return status === "warning" ? "down" : status;
 }
 
 function getDefaultDetail(machineId) {
@@ -547,7 +548,8 @@ function syncAreaInput() {
 }
 
 function syncStatusInput() {
-  statusInput.value = jobsState[machineSelect.value]?.status || getDefaultStatus(machineSelect.value);
+  const status = jobsState[machineSelect.value]?.status || getDefaultStatus(machineSelect.value);
+  statusInput.value = status === "warning" ? "down" : status;
 }
 
 function syncStatusTimeInput() {
@@ -576,7 +578,7 @@ function syncIncidentHints() {
     return;
   }
 
-  if (status === "warning" || status === "down") {
+  if (status === "down") {
     if (statusFlowHint) {
       statusFlowHint.textContent = `เมื่อบันทึก ${machineId} เป็นสถานะนี้ ระบบจะเปิดเหตุและเริ่มนับเวลาตั้งแต่เวลา Status ที่ระบุ`;
     }
@@ -589,7 +591,7 @@ function syncIncidentHints() {
   }
 
   if (statusFlowHint) {
-    statusFlowHint.textContent = "ถ้าเลือกต้องตรวจสอบหรือหยุด ระบบจะเปิดเหตุให้อัตโนมัติ และถ้าเลือกทำงานในเครื่องที่มีเหตุค้าง ระบบจะปิดเหตุพร้อมบันทึกเวลาแก้เสร็จ";
+    statusFlowHint.textContent = "ถ้าเลือกหยุด ระบบจะเปิดเหตุให้อัตโนมัติ และถ้าเลือกทำงานในเครื่องที่มีเหตุค้าง ระบบจะปิดเหตุพร้อมบันทึกเวลาแก้เสร็จ";
   }
 
   if (detailInputHint) {
@@ -1102,7 +1104,7 @@ scanForm.addEventListener("submit", async (event) => {
   await dataService.recordHistory(machineId, jobs[machineId]);
   let incidentMessage = "";
 
-  if (status === "warning" || status === "down") {
+  if (status === "down") {
     const incidentPayload = activeIncident
       ? {
           ...activeIncident,
