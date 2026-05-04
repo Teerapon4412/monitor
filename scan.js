@@ -639,6 +639,12 @@ function renderQuickClosePanel() {
   }
 }
 
+function openCloseCasePage(machineId = machineSelect.value) {
+  const targetMachineId = machineId || machineSelect.value || "";
+  const query = targetMachineId ? `?machine=${encodeURIComponent(targetMachineId)}` : "";
+  window.location.href = `./close-case.html${query}`;
+}
+
 async function closeSelectedMachineIncidentQuick() {
   const machineId = machineSelect.value;
   const activeIncident = getActiveIncident(machineId);
@@ -1322,9 +1328,7 @@ applyPartCodeFallbackButton?.addEventListener("click", () => {
 });
 
 quickCloseButton?.addEventListener("click", async () => {
-  statusInput.value = "running";
-  statusTimeInput.value = toDateTimeLocalValue();
-  await closeSelectedMachineIncidentQuick();
+  openCloseCasePage();
 });
 
 partCodeFallbackInput?.addEventListener("keydown", (event) => {

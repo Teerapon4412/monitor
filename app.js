@@ -875,6 +875,11 @@ function closeCloseCasePopup() {
   closingIncidentMachineId = "";
 }
 
+function openCloseCasePage(machineId) {
+  const query = machineId ? `?machine=${encodeURIComponent(machineId)}` : "";
+  window.location.href = `./close-case.html${query}`;
+}
+
 function openCloseCasePopup(machineId) {
   const machine = getMachine(machineId);
   const activeIncident = getActiveIncident(machineId);
@@ -1038,7 +1043,7 @@ function renderSelectedMachineAlertHistory(machineId) {
       closeButton.className = "alert-close-button";
       closeButton.textContent = "ปิดเคสนี้";
       closeButton.addEventListener("click", () => {
-        openCloseCasePopup(machine.id);
+        openCloseCasePage(machine.id);
       });
       actionWrap.appendChild(closeButton);
       article.appendChild(actionWrap);
@@ -1137,7 +1142,7 @@ function renderAlerts() {
       setSelectedMachine(alert.machine);
     });
     item.querySelector(".alert-close-button")?.addEventListener("click", () => {
-      openCloseCasePopup(alert.machine);
+      openCloseCasePage(alert.machine);
     });
     alertList.appendChild(item);
   });

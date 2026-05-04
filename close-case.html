@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ปิดเคสเครื่องจักร</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell scan-shell">
+      <main class="dashboard">
+        <header class="topbar panel">
+          <div>
+            <p class="eyebrow">ปิดเคส</p>
+            <h1>ปิดเคสเครื่องจักร</h1>
+            <p class="lead">เลือกเครื่องที่มีเหตุค้าง กรอกเวลาและรายละเอียดการแก้ไข แล้วปิดเคสให้กลับไปสถานะทำงานได้ทันที</p>
+          </div>
+          <div class="topbar-meta">
+            <div>
+              <span>กลับไปหน้า</span>
+              <strong><a class="inline-link" href="./scan.html">Scan QR</a></strong>
+            </div>
+            <div>
+              <span>ดูภาพรวม</span>
+              <strong><a class="inline-link" href="./index.html">Monitor</a></strong>
+            </div>
+          </div>
+        </header>
+
+        <section class="main-grid close-case-grid">
+          <article class="panel detail-panel">
+            <div class="section-heading">
+              <span>ฟอร์มปิดเคส</span>
+              <span class="badge status-down">สำหรับเคสค้าง</span>
+            </div>
+
+            <form class="scan-form" id="closeCaseForm">
+              <label class="field">
+                <span>เครื่องจักร (MC)</span>
+                <select id="closeMachineSelect" required></select>
+              </label>
+
+              <label class="field">
+                <span>ผู้ปิดเคส / สถานี</span>
+                <select id="closeScannerInput" required></select>
+              </label>
+
+              <label class="field">
+                <span>เวลาแก้เสร็จ</span>
+                <div class="scan-time-actions">
+                  <input id="closeStatusTimeInput" type="datetime-local" required />
+                  <button type="button" class="action-button compact-button" id="closeUseCurrentTimeButton">ใช้เวลาปัจจุบัน</button>
+                </div>
+              </label>
+
+              <label class="field">
+                <span>รายละเอียดการแก้ไข</span>
+                <div class="detail-field">
+                  <textarea
+                    id="closeDetailInput"
+                    rows="4"
+                    placeholder="พิมพ์วิธีแก้ไขหรือผลการดำเนินการ เช่น เปลี่ยนอะไหล่แล้ว ทดสอบเดินเครื่องผ่าน"
+                    required
+                  ></textarea>
+                </div>
+                <small class="field-hint">เมื่อกดปิดเคส ระบบจะเปลี่ยนสถานะเครื่องกลับเป็น ทำงาน ให้อัตโนมัติ</small>
+              </label>
+
+              <div class="scan-actions">
+                <button type="submit" class="action-button primary">ยืนยันปิดเคส</button>
+                <button type="button" class="action-button" id="closeResetButton">ล้างค่า</button>
+              </div>
+            </form>
+
+            <section class="scan-result panel" id="closeCaseResult" aria-live="polite" hidden>
+              <p class="eyebrow">ผลการบันทึก</p>
+              <h3 id="closeCaseResultTitle">ยังไม่มีการปิดเคสล่าสุด</h3>
+              <p class="inspector-copy" id="closeCaseResultMessage">เมื่อปิดเคสแล้ว ระบบจะแสดงผลลัพธ์ที่นี่</p>
+            </section>
+          </article>
+
+          <article class="panel detail-panel">
+            <div class="section-heading">
+              <span>รายละเอียดเคสค้าง</span>
+              <span class="badge warning" id="closeCaseBadge">รอเลือกเครื่อง</span>
+            </div>
+            <section class="panel quick-close-card close-case-summary-card" id="closeCaseSummaryCard">
+              <div class="quick-close-copy">
+                <strong id="closeCaseSummaryTitle">ยังไม่มีเครื่องที่เลือก</strong>
+                <p id="closeCaseSummaryMessage">เลือกเครื่องที่มีเหตุค้างจากรายการทางซ้าย เพื่อดูเวลาเริ่มเหตุและรายละเอียดที่แจ้งไว้</p>
+              </div>
+              <div class="quick-close-meta" id="closeCaseSummaryMeta"></div>
+            </section>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <div class="success-popup" id="closeCaseSuccessPopup" hidden>
+      <div class="success-popup-backdrop"></div>
+      <section class="success-popup-card panel" role="dialog" aria-modal="true" aria-labelledby="closeCaseSuccessTitle">
+        <span class="badge live">ปิดเคสสำเร็จ</span>
+        <h3 id="closeCaseSuccessTitle">บันทึกเรียบร้อย</h3>
+        <p class="inspector-copy" id="closeCaseSuccessMessage">ระบบปิดเคสและอัปเดตสถานะเครื่องเรียบร้อยแล้ว</p>
+        <button type="button" class="action-button primary" id="closeCaseSuccessConfirmButton">ตกลง</button>
+      </section>
+    </div>
+
+    <script src="./config.js"></script>
+    <script src="./data-service.js"></script>
+    <script src="./data/employees-data.js"></script>
+    <script src="./data/master-data.js"></script>
+    <script src="./data/qr-mapping-data.js"></script>
+    <script src="./data/current-machine-jobs-data.js"></script>
+    <script src="./close-case.js"></script>
+  </body>
+</html>
