@@ -61,6 +61,10 @@ body::before {
   backdrop-filter: blur(14px);
 }
 
+.is-hidden {
+  display: none !important;
+}
+
 .sidebar {
   align-content: start;
 }
