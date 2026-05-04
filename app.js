@@ -62,12 +62,20 @@ const historyFromDate = document.getElementById("historyFromDate");
 const historyToDate = document.getElementById("historyToDate");
 const clearHistoryFilterButton = document.getElementById("clearHistoryFilterButton");
 const exportHistoryButton = document.getElementById("exportHistoryButton");
+const closeCasePopup = document.getElementById("closeCasePopup");
+const closeCasePopupSummary = document.getElementById("closeCasePopupSummary");
+const closeCaseTimeInput = document.getElementById("closeCaseTimeInput");
+const closeCaseByInput = document.getElementById("closeCaseByInput");
+const closeCaseDetailInput = document.getElementById("closeCaseDetailInput");
+const confirmCloseCaseButton = document.getElementById("confirmCloseCaseButton");
+const cancelCloseCaseButton = document.getElementById("cancelCloseCaseButton");
 const dataService = window.monitorDataService;
 
 let selectedMachineId = "MC 10";
 let refreshTimerId;
 let partSettingsState = {};
 let isRefreshingDashboard = false;
+let closingIncidentMachineId = "";
 const masterQrCodes = Array.isArray(window.masterData?.qrCodes) ? window.masterData.qrCodes : [];
 const masterCatalog = Array.isArray(window.masterData?.catalog) ? window.masterData.catalog : [];
 const fallbackQrMappings = Array.isArray(window.qrMappingData?.mappings) ? window.qrMappingData.mappings : [];
@@ -122,6 +130,26 @@ async function loadMachineIncidents() {
 async function loadPartSettings() {
   partSettingsState = await dataService.loadPartSettings();
   return partSettingsState;
+}
+
+function toDateTimeLocalValue(dateValue = new Date()) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16);
+}
+
+function getDateTimeLocalIso(inputValue) {
+  if (!inputValue) {
+    return new Date().toISOString();
+  }
+
+  const selectedDate = new Date(inputValue);
+  return Number.isNaN(selectedDate.getTime()) ? new Date().toISOString() : selectedDate.toISOString();
 }
 
 function getMachineJob(machineId) {
@@ -838,6 +866,106 @@ function renderMachines() {
   });
 }
 
+function closeCloseCasePopup() {
+  if (!closeCasePopup) {
+    return;
+  }
+
+  closeCasePopup.hidden = true;
+  closingIncidentMachineId = "";
+}
+
+function openCloseCasePopup(machineId) {
+  const machine = getMachine(machineId);
+  const activeIncident = getActiveIncident(machineId);
+
+  if (!closeCasePopup || !machine || !activeIncident) {
+    return;
+  }
+
+  closingIncidentMachineId = machineId;
+  closeCasePopup.hidden = false;
+
+  if (closeCasePopupSummary) {
+    closeCasePopupSummary.textContent = `${machineId} แจ้งเหตุเมื่อ ${formatLastScan(activeIncident.openedAt || activeIncident.updatedAt)}${activeIncident.issueDetail ? ` | ${activeIncident.issueDetail}` : ""}`;
+  }
+
+  if (closeCaseTimeInput) {
+    closeCaseTimeInput.value = toDateTimeLocalValue();
+  }
+
+  if (closeCaseByInput) {
+    closeCaseByInput.value = getMachineJob(machineId)?.scannedBy || getMachineOperator(machine) || "Monitor";
+  }
+
+  if (closeCaseDetailInput) {
+    closeCaseDetailInput.value = "";
+  }
+
+  window.setTimeout(() => {
+    closeCaseDetailInput?.focus();
+  }, 0);
+}
+
+async function quickCloseIncidentFromMonitor(machineId) {
+  const machine = getMachine(machineId);
+  const activeIncident = getActiveIncident(machineId);
+
+  if (!machine || !activeIncident) {
+    return;
+  }
+
+  const closedAtIso = getDateTimeLocalIso(closeCaseTimeInput?.value);
+  const closedBy = (closeCaseByInput?.value || "").trim() || getMachineJob(machineId)?.scannedBy || getMachineOperator(machine) || "Monitor";
+  const resolutionDetail = (closeCaseDetailInput?.value || "").trim() || activeIncident.issueDetail || "ปิดเคสจาก Monitor";
+  const currentJob = getMachineJob(machineId) || defaultMachineJobs[machineId] || {};
+  const nextJob = {
+    ...currentJob,
+    area: currentJob.area || getMachineArea(machine),
+    directValue: currentJob.directValue || currentJob.qrValue || getMachineQrValue(machine) || "",
+    partCode: currentJob.partCode || getMachinePartCode(machine) || "",
+    partName: currentJob.partName || getCurrentPart(machine)?.entityName || "",
+    entityType: currentJob.entityType || getCurrentPart(machine)?.entityType || "PART",
+    qrValue: currentJob.qrValue || currentJob.directValue || getMachineQrValue(machine) || "",
+    status: "running",
+    detail: resolutionDetail,
+    updatedAt: closedAtIso,
+    scannedBy: closedBy
+  };
+
+  machineJobsState = await dataService.saveJob(machineId, nextJob, defaultMachineJobs);
+  await dataService.recordHistory(machineId, nextJob);
+  const savedIncident = await dataService.saveIncident({
+    ...activeIncident,
+    area: nextJob.area,
+    directValue: nextJob.directValue,
+    partCode: nextJob.partCode,
+    partName: nextJob.partName,
+    entityType: nextJob.entityType,
+    qrValue: nextJob.qrValue,
+    closeStatus: "running",
+    resolutionDetail,
+    closedAt: closedAtIso,
+    closedBy,
+    active: false,
+    updatedAt: closedAtIso
+  });
+
+  const incidentIndex = machineIncidentsState.findIndex((incident) => incident.id === savedIncident.id);
+  if (incidentIndex >= 0) {
+    machineIncidentsState[incidentIndex] = savedIncident;
+  } else {
+    machineIncidentsState.unshift(savedIncident);
+  }
+
+  closeCloseCasePopup();
+  renderMachines();
+  renderAlerts();
+  renderSummary();
+  setSelectedMachine(machineId);
+  setTimestamp();
+}
+
 function renderSelectedMachineAlertHistory(machineId) {
   if (!machineList) {
     return;
@@ -901,6 +1029,21 @@ function renderSelectedMachineAlertHistory(machineId) {
         <strong>${incident.active ? (incident.openedBy || "--") : `${incident.openedBy || "--"} / ${incident.closedBy || "--"}`}</strong>
       </div>
     `;
+
+    if (incident.active) {
+      const actionWrap = document.createElement("div");
+      actionWrap.className = "machine-card-actions";
+      const closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.className = "alert-close-button";
+      closeButton.textContent = "ปิดเคสนี้";
+      closeButton.addEventListener("click", () => {
+        openCloseCasePopup(machine.id);
+      });
+      actionWrap.appendChild(closeButton);
+      article.appendChild(actionWrap);
+    }
+
     machineList.appendChild(article);
   });
 }
@@ -945,6 +1088,57 @@ function renderAlerts() {
       </div>
       <p class="alert-detail">${alert.detail}</p>
     `;
+    alertList.appendChild(item);
+  });
+}
+
+function renderAlerts() {
+  const sortedAlerts = getSortedAlerts();
+  const criticalCount = sortedAlerts.filter((alert) => alert.level === "critical").length;
+  const warningCount = sortedAlerts.filter((alert) => alert.level === "warning").length;
+
+  alertList.innerHTML = "";
+
+  if (alertSummaryBadge) {
+    if (criticalCount > 0) {
+      alertSummaryBadge.className = "badge warning";
+      alertSummaryBadge.textContent = `วิกฤต ${criticalCount} | เตือน ${warningCount}`;
+    } else if (warningCount > 0) {
+      alertSummaryBadge.className = "badge warning";
+      alertSummaryBadge.textContent = `เตือน ${warningCount}`;
+    } else {
+      alertSummaryBadge.textContent = "ไม่มีแจ้งเตือน";
+      alertSummaryBadge.className = "badge neutral";
+    }
+  }
+
+  sortedAlerts.forEach((alert) => {
+    const item = document.createElement("article");
+    item.className = `alert-card alert-${alert.level}`;
+
+    const severityBadgeClass = alert.level === "critical" ? "status-down" : "status-warning";
+    item.innerHTML = `
+      <div class="alert-card-inner">
+        <button type="button" class="alert-header" aria-label="ดูรายละเอียด ${alert.machine}">
+          <div class="alert-copy">
+            <strong>${alert.machine}</strong>
+            <span class="badge ${severityBadgeClass}">${alertLevelLabel[alert.level] || alert.level}</span>
+          </div>
+          <span class="alert-time">${getAlertTimestampLabel(alert)}</span>
+        </button>
+        <p class="alert-detail">${alert.detail}</p>
+        <div class="alert-card-actions">
+          <button type="button" class="alert-close-button">ปิดเคส</button>
+        </div>
+      </div>
+    `;
+
+    item.querySelector(".alert-header")?.addEventListener("click", () => {
+      setSelectedMachine(alert.machine);
+    });
+    item.querySelector(".alert-close-button")?.addEventListener("click", () => {
+      openCloseCasePopup(alert.machine);
+    });
     alertList.appendChild(item);
   });
 }
@@ -1005,6 +1199,25 @@ async function initializeDashboard() {
   });
 
   exportHistoryButton?.addEventListener("click", exportSelectedMachineHistory);
+
+  cancelCloseCaseButton?.addEventListener("click", () => {
+    closeCloseCasePopup();
+  });
+
+  confirmCloseCaseButton?.addEventListener("click", async () => {
+    if (!closingIncidentMachineId) {
+      closeCloseCasePopup();
+      return;
+    }
+
+    await quickCloseIncidentFromMonitor(closingIncidentMachineId);
+  });
+
+  closeCasePopup?.addEventListener("click", (event) => {
+    if (event.target instanceof HTMLElement && event.target.classList.contains("success-popup-backdrop")) {
+      closeCloseCasePopup();
+    }
+  });
 
   refreshTimerId = window.setInterval(() => {
     refreshDashboard();

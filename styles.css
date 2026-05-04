@@ -266,6 +266,14 @@ h2 {
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .alert-card {
@@ -685,6 +693,41 @@ h2 {
   border-left: 4px solid rgba(92, 225, 230, 0.2);
 }
 
+.machine-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.alert-card-inner {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.alert-card-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.alert-close-button {
+  width: auto;
+  min-width: 112px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 122, 122, 0.22);
+  background: rgba(255, 122, 122, 0.1);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.alert-close-button:hover,
+.alert-close-button:focus-visible {
+  background: rgba(255, 122, 122, 0.18);
+  border-color: rgba(255, 122, 122, 0.34);
+}
+
 .machine-list-empty {
   padding: 18px;
   border-radius: 18px;
@@ -981,6 +1024,52 @@ h2 {
   gap: 12px;
 }
 
+.quick-close-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(255, 122, 122, 0.22);
+  background: linear-gradient(135deg, rgba(101, 29, 43, 0.22), rgba(14, 31, 49, 0.96));
+}
+
+.quick-close-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.quick-close-copy strong {
+  color: var(--text);
+  font-size: 1.02rem;
+}
+
+.quick-close-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.quick-close-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quick-close-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.quick-close-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .action-button {
   padding: 14px 18px;
   cursor: pointer;
@@ -1139,6 +1228,13 @@ h2 {
 
 .success-popup-card .action-button {
   margin-top: 4px;
+}
+
+.close-case-popup-card {
+  width: min(100%, 520px);
+  display: grid;
+  gap: 14px;
+  text-align: left;
 }
 
 .scanner-overlay {

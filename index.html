@@ -183,6 +183,33 @@
       </main>
     </div>
 
+    <div class="success-popup" id="closeCasePopup" hidden>
+      <div class="success-popup-backdrop"></div>
+      <section class="success-popup-card panel close-case-popup-card" role="dialog" aria-modal="true" aria-labelledby="closeCasePopupTitle">
+        <span class="badge status-down">ปิดเคสค้าง</span>
+        <h3 id="closeCasePopupTitle">ปิดเคสเครื่องจักร</h3>
+        <p class="inspector-copy" id="closeCasePopupSummary">กรอกเวลาและรายละเอียดการแก้ไขก่อนปิดเคส</p>
+        <label class="field">
+          <span>เวลาแก้เสร็จ</span>
+          <input id="closeCaseTimeInput" type="datetime-local" />
+        </label>
+        <label class="field">
+          <span>ผู้ปิดเคส</span>
+          <input id="closeCaseByInput" type="text" placeholder="เช่น 225001 - ธีรพล ไชยขวัญ" />
+        </label>
+        <label class="field">
+          <span>รายละเอียดการแก้ไข</span>
+          <div class="detail-field">
+            <textarea id="closeCaseDetailInput" rows="4" placeholder="พิมพ์วิธีแก้ไขหรือผลการดำเนินการ"></textarea>
+          </div>
+        </label>
+        <div class="scanner-overlay-actions">
+          <button type="button" class="action-button primary compact-button" id="confirmCloseCaseButton">ยืนยันปิดเคส</button>
+          <button type="button" class="action-button compact-button" id="cancelCloseCaseButton">ยกเลิก</button>
+        </div>
+      </section>
+    </div>
+
     <script src="./config.js"></script>
     <script src="./data-service.js"></script>
     <script src="./data/master-data.js"></script>

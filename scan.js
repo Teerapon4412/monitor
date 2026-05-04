@@ -4,6 +4,11 @@ const machineSelect = document.getElementById("machineSelect");
 const areaInput = document.getElementById("areaInput");
 const qrInput = document.getElementById("qrInput");
 const scannerInput = document.getElementById("scannerInput");
+const quickCloseCard = document.getElementById("quickCloseCard");
+const quickCloseTitle = document.getElementById("quickCloseTitle");
+const quickCloseMessage = document.getElementById("quickCloseMessage");
+const quickCloseMeta = document.getElementById("quickCloseMeta");
+const quickCloseButton = document.getElementById("quickCloseButton");
 const statusInput = document.getElementById("statusInput");
 const statusTimeInput = document.getElementById("statusTimeInput");
 const detailInput = document.getElementById("detailInput");
@@ -599,6 +604,104 @@ function syncIncidentHints() {
   }
 }
 
+function renderQuickClosePanel() {
+  if (!quickCloseCard) {
+    return;
+  }
+
+  const machineId = machineSelect.value;
+  const activeIncident = getActiveIncident(machineId);
+
+  if (!activeIncident) {
+    quickCloseCard.hidden = true;
+    return;
+  }
+
+  quickCloseCard.hidden = false;
+
+  if (quickCloseTitle) {
+    quickCloseTitle.textContent = `${machineId} มีเคสค้างอยู่`;
+  }
+
+  if (quickCloseMessage) {
+    quickCloseMessage.textContent = activeIncident.issueDetail
+      ? `อาการที่แจ้งไว้: ${activeIncident.issueDetail}`
+      : "เครื่องนี้มีเหตุค้างอยู่ สามารถปิดเคสได้ทันทีโดยไม่ต้องสแกน QR ซ้ำ";
+  }
+
+  if (quickCloseMeta) {
+    const meta = [
+      `เริ่มเหตุ ${formatDateTime(activeIncident.openedAt)}`,
+      `ผู้แจ้ง ${activeIncident.openedBy || "--"}`,
+      `สถานะ ${activeIncident.openStatus === "down" ? "หยุด" : "เปิดเหตุ"}`
+    ];
+    quickCloseMeta.innerHTML = meta.map((item) => `<span>${item}</span>`).join("");
+  }
+}
+
+async function closeSelectedMachineIncidentQuick() {
+  const machineId = machineSelect.value;
+  const activeIncident = getActiveIncident(machineId);
+
+  if (!activeIncident) {
+    showResult("ไม่พบเคสค้าง", `${machineId} ไม่มีเหตุค้างให้ปิดในขณะนี้`);
+    return;
+  }
+
+  const statusTimeIso = getStatusTimeIso() || new Date().toISOString();
+  const scannedBy = scannerInput.value.trim() || "station-01";
+  const detail = detailInput.value.trim();
+  const currentJob = jobsState[machineId] || defaultJobs[machineId] || {};
+  const nextDetail = detail || activeIncident.resolutionDetail || activeIncident.issueDetail || currentJob.detail || "";
+  const nextJob = {
+    ...currentJob,
+    area: currentJob.area || FIXED_DISPLAY_AREA,
+    directValue: currentJob.directValue || currentJob.qrValue || "",
+    partCode: currentJob.partCode || "",
+    partName: currentJob.partName || "",
+    entityType: currentJob.entityType || "PART",
+    qrValue: currentJob.qrValue || currentJob.directValue || "",
+    status: "running",
+    detail: nextDetail,
+    updatedAt: statusTimeIso,
+    scannedBy
+  };
+
+  jobsState = await dataService.saveJob(machineId, nextJob, defaultJobs);
+  await dataService.recordHistory(machineId, nextJob);
+  const savedIncident = await dataService.saveIncident({
+    ...activeIncident,
+    area: nextJob.area,
+    directValue: nextJob.directValue,
+    partCode: nextJob.partCode,
+    partName: nextJob.partName,
+    entityType: nextJob.entityType,
+    qrValue: nextJob.qrValue,
+    closeStatus: "running",
+    resolutionDetail: nextDetail,
+    closedAt: statusTimeIso,
+    closedBy: scannedBy,
+    active: false,
+    updatedAt: statusTimeIso
+  });
+
+  upsertIncidentState(savedIncident);
+  syncStatusInput();
+  syncStatusTimeInput();
+  syncDetailInput();
+  syncIncidentHints();
+  renderQuickClosePanel();
+  renderJobList();
+  showResult("ปิดเคสเรียบร้อย", `${machineId} กลับมาเป็นสถานะทำงานแล้ว เวลา ${formatDateTime(statusTimeIso)}`);
+  await showSuccessPopup(`ปิดเคส ${machineId} เรียบร้อยแล้ว`);
+  resetScanEntryFields();
+  syncStatusInput();
+  syncIncidentHints();
+  renderQuickClosePanel();
+  setCameraState("ปิดเคสสำเร็จ", `ปิดเคส ${machineId} เรียบร้อยแล้ว พร้อมสแกนรายการถัดไป`);
+  focusQrInput(true);
+}
+
 function renderJobList() {
   if (!jobList || !jobCountBadge) {
     return;
@@ -898,6 +1001,7 @@ function resetScanEntryFields() {
   renderPartSelection("");
   renderScanReadout("");
   resetPhotoPreview();
+  renderQuickClosePanel();
 
   if (partCodeFallbackHint) {
     partCodeFallbackHint.textContent = "ถ้าถ่ายรูป QR ไม่สำเร็จ ให้ดูรหัส Part จากข้อความบนป้ายแล้วพิมพ์ที่นี่ ระบบจะค้นชื่อชิ้นงานจาก Master Data ให้ทันที";
@@ -1166,6 +1270,7 @@ scanForm.addEventListener("submit", async (event) => {
 
   renderJobList();
   syncIncidentHints();
+  renderQuickClosePanel();
   showResult(
     `บันทึก ${machineId} เรียบร้อย`,
     `${machineId} ในพื้นที่ ${area} กำลังผลิต ${selectedPart.entityCode} - ${selectedPart.entityName} จาก QR ${lookup.qrValue}${incidentMessage ? ` | ${incidentMessage}` : ""}`
@@ -1216,6 +1321,12 @@ applyPartCodeFallbackButton?.addEventListener("click", () => {
   applyPartCodeFallback(partCodeFallbackInput?.value || "");
 });
 
+quickCloseButton?.addEventListener("click", async () => {
+  statusInput.value = "running";
+  statusTimeInput.value = toDateTimeLocalValue();
+  await closeSelectedMachineIncidentQuick();
+});
+
 partCodeFallbackInput?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") {
     return;
@@ -1239,6 +1350,7 @@ resetStorageButton.addEventListener("click", async () => {
   renderPartSelection("");
   renderScanReadout("");
   setScannerReadyState();
+  renderQuickClosePanel();
   if (partCodeFallbackHint) {
     partCodeFallbackHint.textContent = "ถ้าถ่ายรูป QR ไม่สำเร็จ ให้ดูรหัส Part จากข้อความบนป้ายแล้วพิมพ์ที่นี่ ระบบจะค้นชื่อชิ้นงานจาก Master Data ให้ทันที";
   }
@@ -1267,11 +1379,13 @@ machineSelect.addEventListener("change", () => {
   syncDetailInput();
   syncPartCodeFallbackInput();
   syncIncidentHints();
+  renderQuickClosePanel();
   focusQrInput();
 });
 
 statusInput.addEventListener("change", () => {
   syncIncidentHints();
+  renderQuickClosePanel();
 });
 
 useCurrentTimeButton.addEventListener("click", () => {
@@ -1304,6 +1418,7 @@ async function initializeScanPage() {
   syncDetailInput();
   syncPartCodeFallbackInput();
   syncIncidentHints();
+  renderQuickClosePanel();
   renderJobList();
   renderPartSelection("");
   renderScanReadout("");
