@@ -19,6 +19,12 @@ const jobCountBadge = document.getElementById("jobCountBadge");
 const successPopup = document.getElementById("successPopup");
 const successPopupMessage = document.getElementById("successPopupMessage");
 const successPopupConfirmButton = document.getElementById("successPopupConfirmButton");
+const scannerOverlay = document.getElementById("scannerOverlay");
+const scannerOverlayMessage = document.getElementById("scannerOverlayMessage");
+const scannerVideo = document.getElementById("scannerVideo");
+const closeScannerOverlayButton = document.getElementById("closeScannerOverlayButton");
+const cancelScannerOverlayButton = document.getElementById("cancelScannerOverlayButton");
+const openScannerPhotoButton = document.getElementById("openScannerPhotoButton");
 const startCameraButton = document.getElementById("startCameraButton");
 const stopCameraButton = document.getElementById("stopCameraButton");
 const photoInput = document.getElementById("photoInput");
@@ -61,6 +67,10 @@ let previewObjectUrl = "";
 let scannerInputTimerId;
 let scannerLastSubmittedValue = "";
 let closeSuccessPopupResolver = null;
+let cameraStream = null;
+let liveDetector = null;
+let liveScanFrameId = 0;
+let liveScanActive = false;
 const defaultMachineAreas = {
   "MC 10": "Injection",
   "MC 12": "Injection",
@@ -671,6 +681,125 @@ function showSuccessPopup(message) {
   });
 }
 
+function setScannerOverlayMessage(message) {
+  if (scannerOverlayMessage) {
+    scannerOverlayMessage.textContent = message;
+  }
+}
+
+function supportsLiveCameraScan() {
+  return Boolean(
+    scannerVideo &&
+    navigator.mediaDevices?.getUserMedia &&
+    "BarcodeDetector" in window
+  );
+}
+
+async function ensureLiveDetector() {
+  if (liveDetector) {
+    return liveDetector;
+  }
+
+  const supportedFormats = typeof window.BarcodeDetector?.getSupportedFormats === "function"
+    ? await window.BarcodeDetector.getSupportedFormats()
+    : ["qr_code"];
+  const preferredFormats = ["qr_code", "data_matrix", "aztec", "pdf417"];
+  const formats = preferredFormats.filter((format) => supportedFormats.includes(format));
+  liveDetector = new window.BarcodeDetector({ formats: formats.length ? formats : ["qr_code"] });
+  return liveDetector;
+}
+
+function stopLiveCameraScan() {
+  liveScanActive = false;
+
+  if (liveScanFrameId) {
+    window.cancelAnimationFrame(liveScanFrameId);
+    liveScanFrameId = 0;
+  }
+
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((track) => track.stop());
+    cameraStream = null;
+  }
+
+  if (scannerVideo) {
+    scannerVideo.pause();
+    scannerVideo.srcObject = null;
+  }
+}
+
+function closeScannerOverlay() {
+  stopLiveCameraScan();
+
+  if (scannerOverlay) {
+    scannerOverlay.hidden = true;
+  }
+}
+
+async function processLiveVideoFrame() {
+  if (!liveScanActive || !scannerVideo || scannerVideo.readyState < 2) {
+    if (liveScanActive) {
+      liveScanFrameId = window.requestAnimationFrame(processLiveVideoFrame);
+    }
+    return;
+  }
+
+  try {
+    const detector = await ensureLiveDetector();
+    const barcodes = await detector.detect(scannerVideo);
+    const qrValue = barcodes?.[0]?.rawValue?.trim();
+
+    if (qrValue) {
+      qrInput.value = qrValue;
+      updateQrPreview(qrValue, "กล้องสด");
+      setScannerOverlayMessage(`พบ QR แล้ว: ${qrValue} กำลังบันทึกให้อัตโนมัติ`);
+      closeScannerOverlay();
+      submitScan();
+      return;
+    }
+  } catch (error) {
+    setScannerOverlayMessage(`ยังสแกนไม่สำเร็จ ลองขยับให้ QR อยู่ในกรอบให้ชัดขึ้น (${error.message || "camera"})`);
+  }
+
+  if (liveScanActive) {
+    liveScanFrameId = window.requestAnimationFrame(processLiveVideoFrame);
+  }
+}
+
+async function openLiveCameraScanner() {
+  if (!scannerOverlay) {
+    photoInput.click();
+    return;
+  }
+
+  scannerOverlay.hidden = false;
+  setScannerOverlayMessage("วาง QR ของ Part Tag ให้อยู่ในกรอบ ระบบจะอ่านให้อัตโนมัติ");
+
+  if (!supportsLiveCameraScan()) {
+    setScannerOverlayMessage("อุปกรณ์นี้ยังไม่รองรับกล้องสดในเบราว์เซอร์ กรุณากด ถ่ายรูปแทน");
+    return;
+  }
+
+  try {
+    stopLiveCameraScan();
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+    scannerVideo.srcObject = cameraStream;
+    await scannerVideo.play();
+    liveScanActive = true;
+    setScannerOverlayMessage("วาง QR ของ Part Tag ให้อยู่ในกรอบ ระบบจะอ่านให้อัตโนมัติ");
+    liveScanFrameId = window.requestAnimationFrame(processLiveVideoFrame);
+  } catch (error) {
+    setScannerOverlayMessage(`เปิดกล้องไม่สำเร็จ กรุณากด ถ่ายรูปแทน หรืออนุญาตการใช้กล้อง (${error.message || "camera"})`);
+  }
+}
+
 successPopupConfirmButton?.addEventListener("click", () => {
   closeSuccessPopup();
 });
@@ -678,6 +807,24 @@ successPopupConfirmButton?.addEventListener("click", () => {
 successPopup?.addEventListener("click", (event) => {
   if (event.target instanceof HTMLElement && event.target.classList.contains("success-popup-backdrop")) {
     closeSuccessPopup();
+  }
+});
+
+closeScannerOverlayButton?.addEventListener("click", () => {
+  closeScannerOverlay();
+});
+
+cancelScannerOverlayButton?.addEventListener("click", () => {
+  closeScannerOverlay();
+});
+
+openScannerPhotoButton?.addEventListener("click", () => {
+  photoInput.click();
+});
+
+scannerOverlay?.addEventListener("click", (event) => {
+  if (event.target instanceof HTMLElement && event.target.classList.contains("scanner-overlay-backdrop")) {
+    closeScannerOverlay();
   }
 });
 
@@ -882,7 +1029,7 @@ async function scanPhotoFile(file) {
 }
 
 function startCamera() {
-  photoInput.click();
+  openLiveCameraScanner();
 }
 
 scanForm.addEventListener("submit", async (event) => {
@@ -1095,6 +1242,7 @@ stopCameraButton.addEventListener("click", () => {
 
 photoInput.addEventListener("change", async () => {
   const [file] = photoInput.files || [];
+  closeScannerOverlay();
   await scanPhotoFile(file);
 });
 
@@ -1150,5 +1298,6 @@ async function initializeScanPage() {
 initializeScanPage();
 
 window.addEventListener("beforeunload", () => {
+  closeScannerOverlay();
   resetPhotoPreview();
 });

@@ -194,6 +194,33 @@
       </section>
     </div>
 
+    <div class="scanner-overlay" id="scannerOverlay" hidden>
+      <div class="scanner-overlay-backdrop"></div>
+      <section class="scanner-overlay-card" role="dialog" aria-modal="true" aria-labelledby="scannerOverlayTitle">
+        <div class="scanner-overlay-header">
+          <div>
+            <p class="eyebrow">โหมดสแกน QR</p>
+            <h3 id="scannerOverlayTitle">สแกน Part Tag</h3>
+          </div>
+          <button type="button" class="scanner-overlay-close" id="closeScannerOverlayButton" aria-label="ปิดหน้าสแกน">×</button>
+        </div>
+        <p class="scanner-overlay-copy" id="scannerOverlayMessage">วาง QR ของ Part Tag ให้อยู่ในกรอบ ระบบจะอ่านให้อัตโนมัติ</p>
+        <div class="scanner-viewport">
+          <video id="scannerVideo" class="scanner-video" autoplay playsinline muted></video>
+          <div class="scanner-frame" aria-hidden="true">
+            <span class="scanner-corner scanner-corner-tl"></span>
+            <span class="scanner-corner scanner-corner-tr"></span>
+            <span class="scanner-corner scanner-corner-bl"></span>
+            <span class="scanner-corner scanner-corner-br"></span>
+          </div>
+        </div>
+        <div class="scanner-overlay-actions">
+          <button type="button" class="action-button primary compact-button" id="openScannerPhotoButton">ถ่ายรูปแทน</button>
+          <button type="button" class="action-button compact-button" id="cancelScannerOverlayButton">ยกเลิก</button>
+        </div>
+      </section>
+    </div>
+
     <script src="./config.js"></script>
     <script src="./data-service.js"></script>
     <script src="./data/employees-data.js"></script>
