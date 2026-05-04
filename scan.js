@@ -998,6 +998,7 @@ function resetScanEntryFields() {
   detailInput.value = "";
   scannerLastSubmittedValue = "";
   currentPartCandidates = [];
+  statusInput.value = "running";
   statusTimeInput.value = toDateTimeLocalValue();
 
   if (partCodeFallbackInput) {
@@ -1008,6 +1009,9 @@ function resetScanEntryFields() {
   renderScanReadout("");
   resetPhotoPreview();
   renderQuickClosePanel();
+  syncIncidentHints();
+  setScannerReadyState();
+  setCameraState("พร้อมใช้งาน", "พร้อมกรอกหรือสแกนรายการใหม่ต่อได้ทันที");
 
   if (partCodeFallbackHint) {
     partCodeFallbackHint.textContent = "ถ้าถ่ายรูป QR ไม่สำเร็จ ให้ดูรหัส Part จากข้อความบนป้ายแล้วพิมพ์ที่นี่ ระบบจะค้นชื่อชิ้นงานจาก Master Data ให้ทันที";
